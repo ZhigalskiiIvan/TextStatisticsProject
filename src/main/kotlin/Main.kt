@@ -1,3 +1,8 @@
+import java.util.Scanner
+import kotlin.system.exitProcess
+
+val scanner = Scanner(System.`in`)
+
 object StatisticBuilder {
 
     fun buildGraphic() {}
@@ -22,7 +27,9 @@ class TextData() {
     object TextAnalyzer {
         private val DELIMITERS = listOf('.', '!', '?')
 
-        fun returnListOfSentences(text: Text): List<Text.Sentence> { TODO() }
+        fun returnListOfSentences(text: Text): List<Text.Sentence> {
+            TODO()
+        }
 
     }
 
@@ -41,20 +48,35 @@ class TextData() {
 
 object CommandCenter {
 
-    enum class Commands(val commandName: String, val executingFun: (Any) -> Any) {
-        Exit("exit", TODO()),
-        Add("add", TODO())
+    private enum class Commands(val executingFun: () -> Unit) {
+        EXIT({
+            println("bye!")
+            exitProcess(0)
+        }),
+        ADD_TEXT({ println("add") }),
+        SHOW_STATISTICS({ println("sow") }),
+        REMOVE_TEXT({ println("remove") })
     }
 
-    fun readCommandFromConsole() {}
+    fun readCommandFromConsole(): () -> Unit {
+        println("Input one Of the commands: ${Commands.values().joinToString { it.name.lowercase() }}:")
+        val funNameInUpCase = scanner.nextLine().uppercase()
+
+        return if (funNameInUpCase in Commands.values().map { it.name })
+            Commands.valueOf(funNameInUpCase).executingFun
+        else ::readCommandFromConsole
+    }
 
     fun executeCommand() {}
 
 }
 
 
-fun main(args: Array<String>) {
+fun main() {
 
     mainCycle@ while (true) {
+
+        (CommandCenter.readCommandFromConsole())()
+
     }
 }
