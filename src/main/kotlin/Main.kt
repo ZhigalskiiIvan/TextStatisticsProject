@@ -103,28 +103,51 @@ object TextReader {
 }
 
 
-data class Text(private val name: String, private val sentencesCount: Int) {
-
-    val sentencesList = listOf<Sentence>()
-
-    fun getSentencesCount() {}
-
-    data class Sentence(val wordsCount: Int) {}
-
-}
-
-
 object TextData {
     private val textsList = mutableListOf<Text>()
 
-    fun addNewText(textName: String, content: String) {}
+    fun addNewText(textName: String, content: String) {
+        textsList.add(TextAnalyzer.getTextObjFromContents(textName, content))
+    }
 
     object TextAnalyzer {
-        private val DELIMITERS = listOf('.', '!', '?')
+        private val DELIMITERS = Regex("([!?.]|(\\.\\.\\.))\\s")
+        private val WHITESPACES_WITHOUT_SPACE = Regex("(?=\\s+)(?!=\\s)")
 
-        fun returnListOfSentences(text: Text): List<Text.Sentence> {
-            TODO()
+
+        fun getTextObjFromContents(name: String, content: String): Text {
+            var sentencesCount = 0
+            val listOfSentences = mutableListOf<Text.Sentence>()
+
+            val sentencesStringList = content.split(DELIMITERS).map { it.replace(WHITESPACES_WITHOUT_SPACE, " ") }
+            for (sentenceText in sentencesStringList) {
+                val wordsList = sentenceText.split(" ").toMutableList()
+                wordsList.removeIf { it == "" }
+                if (wordsList.isNotEmpty()) {
+                    sentencesCount++
+                    listOfSentences.add(Text.Sentence(wordsList.size))
+                }
+            }
+            println(sentencesStringList)
+
+            return Text(name, sentencesCount, listOfSentences.toList())
+
         }
+
+    }
+
+    data class Text(
+        private val name: String,
+        private val sentencesCount: Int,
+        private val sentencesList: List<Sentence>,
+    ) {
+
+        fun getSentencesCount() = sentencesCount
+        fun getName() = name
+        data class Sentence(private val wordsCount: Int) {
+            fun getWordsCount() = wordsCount
+        }
+
     }
 
 }
@@ -156,8 +179,6 @@ object CommandCenter {
 fun main() {
 
     mainCycle@ while (true) {
-
         (CommandCenter.readCommandFromConsole())()
-
     }
 }
