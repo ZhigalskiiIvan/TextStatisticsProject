@@ -2,14 +2,13 @@ import java.io.File
 import java.util.Scanner
 import kotlin.system.exitProcess
 import org.jetbrains.letsPlot.*
+import org.jetbrains.letsPlot.geom.geomBar
 import org.jetbrains.letsPlot.intern.Plot
 
 
 val scanner = Scanner(System.`in`)
 
 object StatisticBuilder {
-
-    val plot: Plot? = null
 
     fun askAndExecuteSelfCommands() {
 
@@ -40,11 +39,21 @@ object StatisticBuilder {
     }
 
     private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+        val plot: Plot =
+            ggplot(mapOfSentenceNumToItsSize) + ggsize(1000, 600) + geomBar { x = "sentence number"; y = "words count" }
+
 
     }
 
     private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
-
+        println("-".repeat(textName.length))
+        println("Text name: $textName")
+        println("-".repeat(textName.length))
+        println(
+            "Statistics[num of sentence: count of words in it]: ${
+                mapOfSentenceNumToItsSize.toList().joinToString("; ") { "${it.first}: ${it.second}" } }.")
+        println("-".repeat(textName.length))
+        println("Done!\n")
     }
 
     private fun getTextData(): TextData.Text? {
@@ -93,7 +102,7 @@ object TextReader {
         val name = readln()
 
         println("Input a text content:")
-        var content: String = ""
+        var content = ""
         readCycle@ while (true) {
             val nextPart = scanner.next()
             if (nextPart.isEmpty()) content += nextPart
