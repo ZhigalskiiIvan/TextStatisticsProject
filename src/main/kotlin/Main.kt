@@ -1,16 +1,73 @@
 import java.io.File
 import java.util.Scanner
 import kotlin.system.exitProcess
+import org.jetbrains.letsPlot.*
+import org.jetbrains.letsPlot.intern.Plot
+
 
 val scanner = Scanner(System.`in`)
 
 object StatisticBuilder {
 
-    fun askAndExecuteSelfCommands() {}
+    val plot: Plot? = null
 
-    private fun buildGraphic() {}
+    fun askAndExecuteSelfCommands() {
 
-    private fun printStatisticsInConsole() {}
+        val text = getTextData() ?: return
+
+        var counter = 1
+        val wordsCountsMap = text.getSentencesList().map { counter++ to it.getWordsCount() }
+
+        println("Print \"console\" if you have see data in console, \"graphic\" if you have see histogram and \"both\" if you have see them together:")
+        whenStatShowCycle@ while (true) {
+            when (readln()) {
+                "console" -> printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
+                "graphic" -> buildGraphic(text.getName(), wordsCountsMap.toMap())
+                "both" -> {
+                    buildGraphic(text.getName(), wordsCountsMap.toMap())
+                    printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
+                }
+
+                "return" -> return
+                else -> {
+                    println("Repeat input or enter \"return\" to return in main menu")
+                    continue@whenStatShowCycle
+                }
+            }
+            break@whenStatShowCycle
+        }
+
+    }
+
+    private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+
+    }
+
+    private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+
+    }
+
+    private fun getTextData(): TextData.Text? {
+
+        println("Input name of text which you have to get statistics about:")
+        println("Saved texts: ${TextData.getTextsNamesInString()}")
+
+        cycleSearchText@ while (true) {
+            return when (val name = readln().trim()) {
+                in TextData.getTextsNamesList() -> {
+                    TextData.getTextByName(name)!!
+                }
+
+                "return" -> null
+                else -> {
+                    println("No text with name $name. Repeat input or enter return to return in main menu.")
+                    continue@cycleSearchText
+                }
+            }
+        }
+
+    }
+
 
 }
 
@@ -106,6 +163,19 @@ object TextReader {
 object TextData {
     private val textsList = mutableListOf<Text>()
 
+    fun getTextByName(searchingName: String): Text? {
+        for (text in textsList) if (text.getName() == searchingName) return text
+        return null
+    }
+
+    fun getTextsNamesInString(delimiter: String = ", "): String {
+        return textsList.joinToString(delimiter) { it.getName() }
+    }
+
+    fun getTextsNamesList(): List<String> {
+        return textsList.map { it.getName() }
+    }
+
     fun addNewText(textName: String, content: String) {
         textsList.add(TextAnalyzer.getTextObjFromContents(textName, content))
     }
@@ -144,6 +214,11 @@ object TextData {
 
         fun getSentencesCount() = sentencesCount
         fun getName() = name
+
+        fun getSentencesList(): List<Sentence> {
+            return sentencesList
+        }
+
         data class Sentence(private val wordsCount: Int) {
             fun getWordsCount() = wordsCount
         }
@@ -176,8 +251,8 @@ object CommandCenter {
 
 }
 
-fun main() {
 
+fun main() {
     mainCycle@ while (true) {
         (CommandCenter.readCommandFromConsole())()
     }
