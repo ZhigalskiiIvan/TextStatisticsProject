@@ -86,21 +86,25 @@ object TextReader {
         println("Input name of a text:")
         val name = readln()
 
-        println("Input a text content:")
+        println("Input a text content(after input text press enter twice):")
         var content = ""
 
         var itWasNewParYet = false
         readCycle@ while (true) {
             val nextPart = readln()
-            if (nextPart.isBlank()) {
+            if (nextPart.isEmpty()) {
                 if (itWasNewParYet) break@readCycle
-                else itWasNewParYet = true
+                else {
+                    content += "\n"
+                    itWasNewParYet = true
+                }
             } else {
                 itWasNewParYet = false
-                content += nextPart
+                content += "\n$nextPart"
             }
         }
 
+        println("Was input data right?[yes, no]:")
 
         val correctInputRequest = Main.requestInput(listOf("yes", "no"))
         correctInputRequest.first.exe()
@@ -172,24 +176,24 @@ object TextData {
     }
 
     object TextAnalyzer {
-        private val DELIMITERS = Regex("([!?.]|(\\.\\.\\.))\\s")
-        private val WHITESPACES_WITHOUT_SPACE = Regex("(?=\\s+)(?!=\\s)")
-
+        private val DELIMITERS = Regex("[!?.]+\\s+")
+        private val WHITESPACES = Regex("\\s+")
+        private val WHITESPACES_OR_EMPTY = Regex("(\\s+)?")
 
         fun getTextObjFromContents(name: String, content: String): Text {
             var sentencesCount = 0
             val listOfSentences = mutableListOf<Text.Sentence>()
 
-            val sentencesStringList = content.split(DELIMITERS).map { it.replace(WHITESPACES_WITHOUT_SPACE, " ") }
+            val sentencesStringList = content
+                .split(DELIMITERS)
+                .map { it.replace(WHITESPACES, " ") }.toMutableList()
+            sentencesStringList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
+
             for (sentenceText in sentencesStringList) {
-                val wordsList = sentenceText.split(" ").toMutableList()
-                wordsList.removeIf { it == "" }
-                if (wordsList.isNotEmpty()) {
-                    sentencesCount++
-                    listOfSentences.add(Text.Sentence(wordsList.size))
-                }
+                val wordsList = sentenceText.split(WHITESPACES)
+                sentencesCount++
+                listOfSentences.add(Text.Sentence(wordsList.size))
             }
-            println(sentencesStringList)
 
             return Text(name, sentencesCount, listOfSentences.toList())
 
@@ -229,11 +233,11 @@ object CommandCenter {
         EXIT(::exit),
         ADD_TEXT({ TextReader.askAndExecuteSelfCommands() }),
         SHOW_STATISTICS({ StatisticBuilder.askAndExecuteSelfCommands() }),
-        REMOVE_TEXT({ println("remove") })
+        REMOVE_TEXT({ println("remove command will be soon") })
     }
 
     fun readCommandFromConsole(): () -> Unit {
-        println("Input one Of the commands: ${Commands.values().joinToString { it.name }}:")
+        println("Input one of the commands: ${Commands.values().joinToString { it.name }}:")
 
         val commandNameRequest = Main.requestInput(Commands.values().map { it.name })
         commandNameRequest.first.exe()
@@ -280,7 +284,7 @@ object Main {
 
         readingAndChangingTypeCycle@ while (true) {
 
-            val input = readln()
+            val input = readln().trim()
             if (input == "return") return Pair(ReturnCommand, "")
 
             try {
@@ -302,7 +306,8 @@ object Main {
                 }
 
                 return if (availableInputs != null) {
-                    if (inputT.toString() in availableInputs.map { it.toString() }) Pair(ContinueCommand, inputT)
+                    if (inputT.toString() in availableInputs
+                        .map { it.toString() }) Pair(ContinueCommand, inputT)
                     else throw InvalidElemInInputException()
                 } else Pair(ContinueCommand, inputT)
 
@@ -315,7 +320,8 @@ object Main {
                 println("")
                 continue@readingAndChangingTypeCycle
             } catch (e: InvalidElemInInputException) {
-                println("There isn't this elem in list of available inputs. Try to repeat or enter return to exit in main menu: ")
+                println("There isn't this elem in list of available inputs. " +
+                        "Try to repeat or enter return to exit in main menu: ")
                 continue@readingAndChangingTypeCycle
             }
         }
