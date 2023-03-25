@@ -4,11 +4,11 @@ import kotlin.system.exitProcess
 import org.jetbrains.letsPlot.*
 import org.jetbrains.letsPlot.geom.geomBar
 import org.jetbrains.letsPlot.intern.Plot
-import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 
 val scanner = Scanner(System.`in`)
+
 
 object StatisticBuilder {
 
@@ -66,6 +66,7 @@ object StatisticBuilder {
 
 }
 
+
 object TextReader {
     fun askAndExecuteSelfCommands() {
 
@@ -87,23 +88,25 @@ object TextReader {
 
         println("Input a text content:")
         var content = ""
-        readCycle@ while (true) {
-            val nextPart = scanner.next()
-            if (nextPart.isEmpty()) content += nextPart
-            else break@readCycle
-        }
 
-        correctInputQuestion@ while (true) {
-            print("Input was correct?[yes, no]: ")
-            when (readln()) {
-                "yes" -> addTextToData(name, content)
-                "no" -> readFromConsole()
-                "return" -> return
-                else -> {
-                    println("Input only \"yes\" or \"no\" or \"return\" if you want to exit in main menu:")
-                }
+        var itWasNewParYet = false
+        readCycle@ while (true) {
+            val nextPart = readln()
+            if (nextPart.isBlank()) {
+                if (itWasNewParYet) break@readCycle
+                else itWasNewParYet = true
+            } else {
+                itWasNewParYet = false
+                content += nextPart
             }
         }
+
+
+        val correctInputRequest = Main.requestInput(listOf("yes", "no"))
+        correctInputRequest.first.exe()
+
+        if (correctInputRequest.second == "yes") addTextToData(name, content)
+        else readFromConsole()
     }
 
     private fun readFromFile() {
@@ -214,6 +217,7 @@ object TextData {
 
 }
 
+
 fun exit(): Nothing {
     println("bye!")
     exitProcess(0)
@@ -229,14 +233,15 @@ object CommandCenter {
     }
 
     fun readCommandFromConsole(): () -> Unit {
-        println("Input one Of the commands: ${Commands.values().joinToString { it.name.lowercase() }}:")
-        val funNameInUpCase = scanner.nextLine().uppercase()
+        println("Input one Of the commands: ${Commands.values().joinToString { it.name }}:")
 
-        return if (funNameInUpCase in Commands.values().map { it.name })
-            Commands.valueOf(funNameInUpCase).executingFun
-        else ::readCommandFromConsole
+        val commandNameRequest = Main.requestInput(Commands.values().map { it.name })
+        commandNameRequest.first.exe()
+
+        val funName = commandNameRequest.second.toString()
+
+        return Commands.valueOf(funName).executingFun
     }
-
 }
 
 
@@ -249,14 +254,13 @@ object ContinueCommand : InputOutcomeCommand {
 }
 
 object ReturnCommand : InputOutcomeCommand {
-    override val exe: () -> Unit = { Main.work() }
+    override val exe: () -> Unit = { Main.workCycle() }
 }
 
 
 class InvalidInputTypeException(expectedType: String) : Exception(expectedType) {
     override val message: String = expectedType
         get() = "Was expected type: $field, but it's impossible to convert input in it."
-
 }
 
 class InvalidElemInInputException() : Exception()
@@ -264,7 +268,7 @@ class InvalidElemInInputException() : Exception()
 
 object Main {
 
-    fun work() {
+    fun workCycle() {
         mainCycle@ while (true) {
             (CommandCenter.readCommandFromConsole())()
         }
@@ -319,6 +323,7 @@ object Main {
 
 }
 
+
 fun main() {
-    Main.work()
+    Main.workCycle()
 }
