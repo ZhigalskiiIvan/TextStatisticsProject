@@ -176,6 +176,7 @@ object TextReader {
         println("Input a name of a text:")
         val name = readln()
 
+        println("Input path to file:")
         val contentsFile: File
 
         pathReadCycle@ while (true) {
@@ -436,8 +437,8 @@ class ReturnException : Exception() {
 
 class InvalidInputTypeException : Exception() {
     /**
-     * Custom exception being thrown if input can't be converted
-     * to the requested type.
+     *  Custom exception being thrown if input can't be converted
+     *  to the requested type.
      */
 }
 
