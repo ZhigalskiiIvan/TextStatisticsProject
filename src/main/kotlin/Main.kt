@@ -1,5 +1,4 @@
 import java.io.File
-import java.util.Scanner
 import kotlin.system.exitProcess
 import org.jetbrains.letsPlot.*
 import org.jetbrains.letsPlot.geom.geomBar
@@ -7,12 +6,19 @@ import org.jetbrains.letsPlot.intern.Plot
 import kotlin.reflect.typeOf
 
 
-val scanner = Scanner(System.`in`)
-
-
 object StatisticBuilder {
+    /**
+     *  Singleton object which gives statistics of saved texts.
+     */
+
 
     fun askAndExecuteSelfCommands() {
+        /**
+         *  Recognizes the name of the text, which
+         *  user want to see statistics about and type of output.
+         *  It calls methods of graphic building or printing data in console,
+         *  build required for it objects.
+         */
 
         if (!TextData.haveText()) {
             println("No saved texts")
@@ -41,13 +47,29 @@ object StatisticBuilder {
 
     }
 
+
     private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+        /**
+         *  It builds bar chart with data of mapOfSentenceNumToItsSize.
+         *  textName: name of texts, which user want to see statistics about.
+         *  mapOfSentenceNumToItsSize: map of pairs of sentence numbers and their words count.
+         */
+
         val plot: Plot =
             ggplot(mapOfSentenceNumToItsSize) + ggsize(1000, 600) + geomBar { x = "sentence number"; y = "words count" }
+
+        TODO("вил би сун")
 
     }
 
     private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+        /**
+         *  Prints statistics according to data from mapOfSentenceNumToItsSize.
+         *
+         *  textName: name of texts, which user want to see statistics about.
+         *  mapOfSentenceNumToItsSize: map of pairs of sentence numbers and their words count.
+         */
+
         val sectionTitle = "Text name: $textName"
         println("-".repeat(sectionTitle.length))
         println(sectionTitle)
@@ -63,7 +85,9 @@ object StatisticBuilder {
             |Statistics:
             |[count of sentences]: 
             |--- $totalSentencesCount
-            |[total number of words]:
+            |[total number of sentences]:
+            |--- ${mapOfSentenceNumToItsSize.size}
+            ||[total number of words]:
             |--- $totalWordsCount
             |[num of sentence: count of words in it]:
             |--- ${mapOfSentenceNumToItsSize.toList().joinToString("; ") { "${it.first} contains ${it.second}" }}.
@@ -77,7 +101,15 @@ object StatisticBuilder {
 
 
 object TextReader {
+    /** Singleton object used for reading text from a file or console. */
+
+
     fun askAndExecuteSelfCommands() {
+        /**
+         * Asks the user which where they want to read the text from and
+         * calls special for file- and console- reading methods according the answer.
+         */
+
 
         println("Where do you want to add the text: from the console or a file?")
 
@@ -90,10 +122,20 @@ object TextReader {
         }
     }
 
+
     private fun readFromConsole() {
+        /**
+         * Read from console the name of text, checks that it hasn't saved yet and its contents,
+         * asks if entered text is not correct and re-calls itself or
+         * calls method of adding received text to data.
+         */
 
         println("Input name of a text:")
-        val name = readln()
+        if (TextData.haveText()) println("Unavailable(existing) names: ${TextData.getTextNamesInString()}.")
+        val nameRequest = Main.requestInput(unavailableInputs = TextData.getTextNamesList())
+        nameRequest.first.exe()
+
+        val name = nameRequest.second.toString()
 
         println("Input a text content(after input text press enter twice):")
         var content = ""
@@ -123,6 +165,13 @@ object TextReader {
     }
 
     private fun readFromFile() {
+        /**
+         * Asks for the name of text, path to file to read text from,
+         * checks for its existing, reads contents and,
+         * asks if entered names is not correct and re-calls itself or
+         * calls method of adding received text to data.
+         */
+
 
         println("Input a name of a text:")
         val name = readln()
@@ -157,7 +206,15 @@ object TextReader {
         }
     }
 
+
     private fun addTextToData(textName: String, content: String) {
+        /**
+         * Calls method of TextData class to add new text in set
+         * of tracked texts.
+         * textName: name of new text.
+         * content: content of new text.
+         */
+
         TextData.addNewText(textName, content)
     }
 
@@ -165,11 +222,25 @@ object TextReader {
 
 
 object TextData {
+    /**
+     * Object used for storing data about tracking texts,
+     * includes methods for work with them.
+     * textsList: list of monitored texts.
+     */
+
+
     private val textsList = mutableListOf<Text>()
 
-    fun haveText(): Boolean = !textsList.isEmpty()
+
+    fun haveText(): Boolean = textsList.isNotEmpty()
+
 
     fun removeText() {
+        /**
+         * Method for removing text from watch list. Asks for a name of a text
+         * and if it's being tracked, remove it from the textsList.
+         */
+
 
         if (!haveText()) {
             println("No saved texts")
@@ -184,29 +255,49 @@ object TextData {
 
 
     private fun getTextByName(searchingName: String): Text? {
+        /**
+         * Returns Text object whose name matches searchingName or null
+         * if there is no text with same name in the textsList.
+         * searchingName: name of the text to be found.
+         * return: the text with searchingName name or null.
+         */
+
         for (text in textsList) if (text.getName() == searchingName) return text
         return null
     }
 
-    private fun getTextsNamesInString(delimiter: String = ", "): String {
+    fun getTextNamesInString(delimiter: String = ", "): String {
+        /** Returns string with names of tracking texts separated by delimiter. */
         return textsList.joinToString(delimiter) { it.getName() }
     }
 
-    private fun getTextsNamesList(): List<String> {
+    fun getTextNamesList(): List<String> {
+        /** Returns list with names of tracking texts. */
         return textsList.map { it.getName() }
     }
 
 
     fun addNewText(textName: String, content: String) {
+        /**
+         * Calls method of textAnalyzer for getting Text object from
+         * textName and content and adds it in textsList.
+         */
         textsList.add(TextAnalyzer.getTextObjFromContents(textName, content))
     }
 
 
     fun getTextData(message: String = "Input name of a text"): Text {
-        println(message)
-        println("Saved texts: ${getTextsNamesInString()}")
+        /**
+         * Reads name of the text to be found and returns it text if
+         * it exists.
+         * message: message which prints with calling this method.
+         * return: text
+         */
 
-        val nameRequest = Main.requestInput(getTextsNamesList())
+        println(message)
+        println("Saved texts: ${getTextNamesInString()}.")
+
+        val nameRequest = Main.requestInput(getTextNamesList())
         nameRequest.first.exe()
 
         return getTextByName(nameRequest.second.toString())!!
@@ -214,11 +305,19 @@ object TextData {
 
 
     object TextAnalyzer {
+        /** Object used for getting text from the string information. */
+
         private val DELIMITERS = Regex("[!?.]+\\s+")
         private val WHITESPACES = Regex("\\s+")
         private val WHITESPACES_OR_EMPTY = Regex("(\\s+)?")
 
         fun getTextObjFromContents(name: String, content: String): Text {
+            /**
+             * Receives text as input and splits it by sentence, calculate its lengths,
+             * create list of Sentence objects and returns Text object, created with
+             * this list, input field name, and count of sentences in content.
+             */
+
             var sentencesCount = 1
             val listOfSentences = mutableListOf<Text.Sentence>()
 
@@ -245,14 +344,15 @@ object TextData {
         private val sentencesCount: Int,
         private val sentencesList: List<Sentence>,
     ) {
-
-        fun getSentencesCount() = sentencesCount
+        /** Stores information about conjugated text. */
 
         fun getName() = name
 
         fun getSentencesList() = sentencesList
 
+
         data class Sentence(private val wordsCount: Int) {
+            /** stores information about count of words. */
             fun getWordsCount() = wordsCount
         }
     }
@@ -261,14 +361,23 @@ object TextData {
 
 
 fun exit(): Nothing {
+    /** function used for exiting out of program. */
     println("bye!")
     exitProcess(0)
 }
 
 
 object CommandCenter {
+    /**
+     * Singleton used for reading commands from console and storing data about
+     * the functions they should execute.
+     */
 
     private enum class Commands(val executingFun: () -> Unit) {
+        /**
+         * Enumerating of available commands names and functions conjugated
+         * with them.
+         */
         EXIT(::exit),
         ADD_TEXT({ TextReader.askAndExecuteSelfCommands() }),
         SHOW_STATISTICS({ StatisticBuilder.askAndExecuteSelfCommands() }),
@@ -276,6 +385,10 @@ object CommandCenter {
     }
 
     fun readCommandFromConsole(): () -> Unit {
+        /**
+         * Prints list of names of available commands, requests the name and
+         * returns corresponding to entered name function.
+         */
         println("Input one of the commands: ${Commands.values().joinToString { it.name }}:")
 
         val commandNameRequest = Main.requestInput(Commands.values().map { it.name })
@@ -290,36 +403,64 @@ object CommandCenter {
 
 
 interface InputOutcomeCommand {
+    /**
+     * Interface used to existing commands objects, whose exe value
+     * stores function which calls after request due the program.
+     * exe: function returned in a Main.requestInput method for returned to
+     * main menu of application or continuation of the process.
+     */
     val exe: () -> Unit
 }
 
 object ContinueCommand : InputOutcomeCommand {
+    /** If called exe of this object, program continue executing
+     * without changes.
+     */
     override val exe: () -> Unit = {}
 }
 
 object ReturnCommand : InputOutcomeCommand {
+    /**
+     * If called exe of this object, a custom ReturnException is thrown
+     * and process of executing some called command interrupted. Exception
+     * catches in mainCycle and program command request is repeated.
+     */
     override val exe: () -> Unit = {
         throw ReturnException()
     }
 }
 
-
-class InvalidInputTypeException(expectedType: String) : Exception(expectedType) {
-    override val message: String = expectedType
-
-    init {
-        "Was expected type: $message, but it's impossible to convert input in it."
-    }
+class ReturnException : Exception() {
+    /** Custom exception being thrown if user want to return to the menu. */
 }
 
-class InvalidElemInInputException : Exception()
+class InvalidInputTypeException : Exception() {
+    /**
+     * Custom exception being thrown if input can't be converted
+     * to the requested type.
+     */
+}
 
-class ReturnException : Exception()
+class InvalidElemInInputException : Exception() {
+    /**
+     * Custom exception being thrown if input doesn't match the list
+     * of possible values.
+     */
+}
 
 
 object Main {
+    /**
+     * Object which contains request processing method and working body of
+     * application.
+     */
 
     fun workCycle() {
+        /**
+         * Method repeating the process of calling functions returned by
+         * CommandCenter. If ReturnException was thrown, it is caught here,
+         * last iteration breaks and new one is called.
+         */
         mainCycle@ while (true) {
             try {
                 (CommandCenter.readCommandFromConsole())()
@@ -330,7 +471,21 @@ object Main {
         }
     }
 
-    inline fun <reified T> requestInput(availableInputs: List<T>? = null): Pair<InputOutcomeCommand, Any> {
+    inline fun <reified T> requestInput(
+        availableInputs: List<T>? = null,
+        unavailableInputs: List<T>? = null
+    ): Pair<InputOutcomeCommand, Any> {
+        /**
+         * Method reads from console input, check if it isn't available, repeat the request from the console
+         * in this case and convert input in type T if possible, else throws an exception and repeat the
+         * request.
+         *
+         * availableInputs: list of available values, the choice among which
+         * is requested from the console at some stage of the program.
+         * unavailableInputs: list of unavailable values.
+         * return: a pair of function, which could be called after the request from this function to return
+         * if user want it or continue and value that the user has selected from the list of available.
+         */
 
         var inputT: Any
 
@@ -350,19 +505,33 @@ object Main {
                     typeOf<Char>() -> {
                         if (input.trim().length == 1) {
                             input.trim().toCharArray()[0]
-                        } else throw InvalidInputTypeException(typeOf<Char>().toString())
+                        } else throw InvalidInputTypeException()
                     }
 
                     typeOf<String>() -> input
-                    else -> throw InvalidInputTypeException(typeOf<T>().toString())
+                    else -> throw InvalidInputTypeException()
                 }
 
-                return if (availableInputs != null) {
-                    if (inputT.toString() in availableInputs
-                            .map { it.toString() }
-                    ) Pair(ContinueCommand, inputT)
-                    else throw InvalidElemInInputException()
-                } else Pair(ContinueCommand, inputT)
+                return when {
+                    availableInputs != null && unavailableInputs != null -> {
+                        if (inputT.toString() in availableInputs.map { it.toString() } &&
+                            inputT.toString() !in unavailableInputs.map { it.toString() }) Pair(ContinueCommand, inputT)
+                        else throw InvalidElemInInputException()
+                    }
+
+                    availableInputs != null -> {
+                        if (inputT.toString() in availableInputs.map { it.toString() }) Pair(ContinueCommand, inputT)
+                        else throw InvalidElemInInputException()
+                    }
+
+                    unavailableInputs != null -> {
+                        if (inputT.toString() !in unavailableInputs.map { it.toString() }) Pair(ContinueCommand, inputT)
+                        else throw InvalidElemInInputException()
+                    }
+
+                    else -> Pair(ContinueCommand, inputT)
+                }
+
 
             } catch (e: NumberFormatException) {
                 continue@readingAndChangingTypeCycle
