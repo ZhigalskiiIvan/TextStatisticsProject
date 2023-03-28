@@ -14,7 +14,12 @@ object StatisticBuilder {
 
     fun askAndExecuteSelfCommands() {
 
-        val text = getTextData() ?: return
+        if (!TextData.haveText()) {
+            println("No saved texts")
+            return
+        }
+
+        val text = TextData.getTextData("Input name of a text which you want to see statistics about.")
 
         var counter = 1
         val wordsCountsMap = text.getSentencesList().map { counter++ to it.getWordsCount() }
@@ -43,25 +48,29 @@ object StatisticBuilder {
     }
 
     private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
-        println("-".repeat(textName.length))
-        println("Text name: $textName")
-        println("-".repeat(textName.length))
+        val sectionTitle = "Text name: $textName"
+        println("-".repeat(sectionTitle.length))
+        println(sectionTitle)
+        println("-".repeat(sectionTitle.length))
+
+        val totalSentencesCount = mapOfSentenceNumToItsSize.size
+        var totalWordsCount = 0
+        for (sentInfo in mapOfSentenceNumToItsSize) {
+            totalWordsCount += sentInfo.value
+        }
         println(
-            "Statistics[num of sentence: count of words in it]: ${
-                mapOfSentenceNumToItsSize.toList().joinToString("; ") { "${it.first}: ${it.second}" }
-            }.")
-        println("-".repeat(textName.length))
+            """
+            |Statistics:
+            |[count of sentences]: 
+            |--- $totalSentencesCount
+            |[total number of words]:
+            |--- $totalWordsCount
+            |[num of sentence: count of words in it]:
+            |--- ${mapOfSentenceNumToItsSize.toList().joinToString("; ") { "${it.first} contains ${it.second}" }}.
+            """.trimMargin()
+        )
+        println("-".repeat(sectionTitle.length))
         println("Done!\n")
-    }
-
-    private fun getTextData(): TextData.Text? {
-        println("Input name of text which you have to get statistics about:")
-        println("Saved texts: ${TextData.getTextsNamesInString()}")
-
-        val nameRequest = Main.requestInput(TextData.getTextsNamesList())
-        nameRequest.first.exe()
-
-        return TextData.getTextByName(nameRequest.second.toString())
     }
 
 }
@@ -100,7 +109,7 @@ object TextReader {
                 }
             } else {
                 itWasNewParYet = false
-                content += "\n$nextPart"
+                content += "$nextPart\n"
             }
         }
 
@@ -158,22 +167,51 @@ object TextReader {
 object TextData {
     private val textsList = mutableListOf<Text>()
 
-    fun getTextByName(searchingName: String): Text? {
+    fun haveText(): Boolean = !textsList.isEmpty()
+
+    fun removeText() {
+
+        if (!haveText()) {
+            println("No saved texts")
+            return
+        }
+
+        val removingText = getTextData("Input name of text which you want to remove.")
+        textsList.remove(removingText)
+
+        println("Text ${removingText.getName()} removed.")
+    }
+
+
+    private fun getTextByName(searchingName: String): Text? {
         for (text in textsList) if (text.getName() == searchingName) return text
         return null
     }
 
-    fun getTextsNamesInString(delimiter: String = ", "): String {
+    private fun getTextsNamesInString(delimiter: String = ", "): String {
         return textsList.joinToString(delimiter) { it.getName() }
     }
 
-    fun getTextsNamesList(): List<String> {
+    private fun getTextsNamesList(): List<String> {
         return textsList.map { it.getName() }
     }
+
 
     fun addNewText(textName: String, content: String) {
         textsList.add(TextAnalyzer.getTextObjFromContents(textName, content))
     }
+
+
+    fun getTextData(message: String = "Input name of a text"): Text {
+        println(message)
+        println("Saved texts: ${getTextsNamesInString()}")
+
+        val nameRequest = Main.requestInput(getTextsNamesList())
+        nameRequest.first.exe()
+
+        return getTextByName(nameRequest.second.toString())!!
+    }
+
 
     object TextAnalyzer {
         private val DELIMITERS = Regex("[!?.]+\\s+")
@@ -181,7 +219,7 @@ object TextData {
         private val WHITESPACES_OR_EMPTY = Regex("(\\s+)?")
 
         fun getTextObjFromContents(name: String, content: String): Text {
-            var sentencesCount = 0
+            var sentencesCount = 1
             val listOfSentences = mutableListOf<Text.Sentence>()
 
             val sentencesStringList = content
@@ -190,16 +228,17 @@ object TextData {
             sentencesStringList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
 
             for (sentenceText in sentencesStringList) {
-                val wordsList = sentenceText.split(WHITESPACES)
+                val wordsList = sentenceText.split(WHITESPACES).toMutableList()
+                wordsList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
                 sentencesCount++
                 listOfSentences.add(Text.Sentence(wordsList.size))
             }
 
             return Text(name, sentencesCount, listOfSentences.toList())
-
         }
 
     }
+
 
     data class Text(
         private val name: String,
@@ -216,7 +255,6 @@ object TextData {
         data class Sentence(private val wordsCount: Int) {
             fun getWordsCount() = wordsCount
         }
-
     }
 
 }
@@ -227,13 +265,14 @@ fun exit(): Nothing {
     exitProcess(0)
 }
 
+
 object CommandCenter {
 
     private enum class Commands(val executingFun: () -> Unit) {
         EXIT(::exit),
         ADD_TEXT({ TextReader.askAndExecuteSelfCommands() }),
         SHOW_STATISTICS({ StatisticBuilder.askAndExecuteSelfCommands() }),
-        REMOVE_TEXT({ println("remove command will be soon") })
+        REMOVE_TEXT({ TextData.removeText() })
     }
 
     fun readCommandFromConsole(): () -> Unit {
@@ -246,6 +285,7 @@ object CommandCenter {
 
         return Commands.valueOf(funName).executingFun
     }
+
 }
 
 
@@ -258,23 +298,35 @@ object ContinueCommand : InputOutcomeCommand {
 }
 
 object ReturnCommand : InputOutcomeCommand {
-    override val exe: () -> Unit = { Main.workCycle() }
+    override val exe: () -> Unit = {
+        throw ReturnException()
+    }
 }
 
 
 class InvalidInputTypeException(expectedType: String) : Exception(expectedType) {
     override val message: String = expectedType
-        get() = "Was expected type: $field, but it's impossible to convert input in it."
+
+    init {
+        "Was expected type: $message, but it's impossible to convert input in it."
+    }
 }
 
-class InvalidElemInInputException() : Exception()
+class InvalidElemInInputException : Exception()
+
+class ReturnException : Exception()
 
 
 object Main {
 
     fun workCycle() {
         mainCycle@ while (true) {
-            (CommandCenter.readCommandFromConsole())()
+            try {
+                (CommandCenter.readCommandFromConsole())()
+            } catch (e: ReturnException) {
+                println("You have been returned in main menu.")
+                continue@mainCycle
+            }
         }
     }
 
@@ -307,21 +359,20 @@ object Main {
 
                 return if (availableInputs != null) {
                     if (inputT.toString() in availableInputs
-                        .map { it.toString() }) Pair(ContinueCommand, inputT)
+                            .map { it.toString() }
+                    ) Pair(ContinueCommand, inputT)
                     else throw InvalidElemInInputException()
                 } else Pair(ContinueCommand, inputT)
 
             } catch (e: NumberFormatException) {
-                println(e.message)
-                println("")
                 continue@readingAndChangingTypeCycle
             } catch (e: InvalidInputTypeException) {
-                println(e.message)
-                println("")
                 continue@readingAndChangingTypeCycle
             } catch (e: InvalidElemInInputException) {
-                println("There isn't this elem in list of available inputs. " +
-                        "Try to repeat or enter return to exit in main menu: ")
+                println(
+                    "There isn't this elem in list of available inputs. " +
+                            "Try to repeat or enter return to exit in main menu: "
+                )
                 continue@readingAndChangingTypeCycle
             }
         }
