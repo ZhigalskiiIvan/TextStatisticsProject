@@ -18,6 +18,7 @@ dependencies {
     implementation("org.slf4j:slf4j-nop:1.7.29")
     implementation("org.jetbrains.lets-plot:lets-plot-image-export:3.1.0")
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 }
 
 test {
