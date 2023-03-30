@@ -1,12 +1,12 @@
 import java.io.File
 import kotlin.system.exitProcess
 import org.jetbrains.letsPlot.*
-import org.jetbrains.letsPlot.geom.geomBar
-import org.jetbrains.letsPlot.intern.Plot
+import org.jetbrains.letsPlot.export.ggsave
+import org.jetbrains.letsPlot.geom.*
 import kotlin.reflect.typeOf
 
 
-/** Singleton object which gives statistics of saved texts.
+/** Gives statistics of saved texts.
  */
 class StatisticBuilder {
 
@@ -36,11 +36,10 @@ class StatisticBuilder {
             "console" -> printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
             "graphic" -> buildGraphic(text.getName(), wordsCountsMap.toMap())
             "both" -> {
-                buildGraphic(text.getName(), wordsCountsMap.toMap())
                 printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
+                buildGraphic(text.getName(), wordsCountsMap.toMap())
             }
         }
-
 
     }
 
@@ -50,10 +49,25 @@ class StatisticBuilder {
      */
     private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
 
-        val plot: Plot =
-            ggplot(mapOfSentenceNumToItsSize) + ggsize(1000, 600) + geomBar { x = "sentence number"; y = "words count" }
+        val data = mapOf(
+            "words count" to mapOfSentenceNumToItsSize.map { it.value.toFloat() / mapOfSentenceNumToItsSize.size },
+        )
 
-        TODO("вил би сун")
+        val fig = ggplot(data) +
+                geomBar(
+                    color = "white",
+                    fill = "red"
+                ) { x = "words count" } +
+                geomArea(
+                    stat = Stat.density(),
+                    color = "white",
+                    fill = "pink",
+                    alpha = 0.4
+                ) { x = "words count" } +
+                ggsize(1400, 800)
+
+        println("Graphic was save in ${ggsave(fig, "$textName.png")}")
+        fig.show()
 
     }
 
@@ -361,14 +375,13 @@ class CommandCenter(
     private val statisticBuilder: StatisticBuilder
 ) {
 
-
     private val exitCommand = Command("exit", ::exit)
     private val addCommand = Command("add text") { textReader.readNewText(textData) }
     private val showStatisticsCommand = Command("show statistics") { statisticBuilder.getStatistics(textData) }
-    private val removeTextCommand = Command("Remove text") { textData.removeText() }
+    private val removeTextCommand = Command("remove text") { textData.removeText() }
 
     private val commandsList = listOf(exitCommand, addCommand, showStatisticsCommand, removeTextCommand)
-    val commandsNames = commandsList.map { it.name }
+    private val commandsNames = commandsList.map { it.name }
 
     /** Enumerating of available commands names and functions conjugated
      *  with them.
@@ -472,7 +485,6 @@ inline fun <reified T> requestInput(
         if (input == "return") return Pair(ReturnCommand(), "")
 
         try {
-//            inputT = input to typeOf<T>()
             inputT = when (typeOf<T>()) {
                 typeOf<Int>() -> input.toInt()
                 typeOf<Double>() -> input.toDouble()
