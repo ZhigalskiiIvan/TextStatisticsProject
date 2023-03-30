@@ -43,9 +43,9 @@ class StatisticBuilder {
 
     }
 
-    /** It builds bar chart with data of mapOfSentenceNumToItsSize.
-     *  textName: name of texts, which user want to see statistics about.
-     *  mapOfSentenceNumToItsSize: map of pairs of sentence numbers and their words count.
+    /** Builds bar chart with data of mapOfSentenceNumToItsSize and saves image in file.
+     *  @param textName name of texts, which user want to see statistics about.
+     *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
      */
     private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
 
@@ -71,11 +71,9 @@ class StatisticBuilder {
 
     }
 
-    /**
-     *  Prints statistics according to data from mapOfSentenceNumToItsSize.
-     *
-     *  textName: name of texts, which user want to see statistics about.
-     *  mapOfSentenceNumToItsSize: map of pairs of sentence numbers and their words count.
+    /** Prints statistics according to data from mapOfSentenceNumToItsSize.
+     *  @param textName name of texts, which user want to see statistics about.
+     *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
      */
     private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
 
@@ -108,12 +106,11 @@ class StatisticBuilder {
 }
 
 
-/** Singleton object used for reading text from a file or console. */
+/** Used for reading text from a file or console. */
 class TextReader {
 
-    /**
-     * Asks the user which where they want to read the text from and
-     * calls special for file- and console- reading methods according the answer.
+    /** Asks the user which where they want to read the text from and
+     *  calls special for file- and console- reading methods according the answer.
      */
     fun readNewText(textData: TextData) {
 
@@ -130,8 +127,8 @@ class TextReader {
 
 
     /** Read from console the name of text, checks that it hasn't saved yet and its contents,
-     * asks if entered text is not correct and re-calls itself or
-     * calls method of adding received text to data.
+     *  asks if entered text is not correct and re-calls itself or
+     *  calls method of adding received text to data.
      */
     private fun readFromConsole(textData: TextData) {
 
@@ -169,11 +166,10 @@ class TextReader {
         else readFromConsole(textData)
     }
 
-    /**
-     * Asks for the name of text, path to file to read text from,
-     * checks for its existing, reads contents and,
-     * asks if entered names is not correct and re-calls itself or
-     * calls method of adding received text to data.
+    /** Asks for the name of text, path to file to read text from,
+     *  checks for its existing, reads contents and,
+     *  asks if entered names is not correct and re-calls itself or
+     *  calls method of adding received text to data.
      */
     private fun readFromFile(textData: TextData) {
 
@@ -222,8 +218,8 @@ class TextReader {
 
 }
 
-/** Object used for storing data about tracking texts,
- *  includes methods for work with them.
+/** Stores data about tracking texts,
+ *  includes methods for work with them due the adding.
  */
 class TextData {
 
@@ -250,11 +246,10 @@ class TextData {
         println("Text ${removingText.getName()} removed.")
     }
 
-    /**
-     * Returns Text object whose name matches searchingName or null
-     * if there is no text with same name in the textsList.
-     * searchingName: name of the text to be found.
-     * return: the text with searchingName name or null.
+    /** Returns Text object whose name matches searchingName or null
+     *  if there is no text with same name in the textsList.
+     *  @param searchingName name of the text to be found.
+     *  @return the text with searchingName name or null.
      */
     private fun getTextByName(searchingName: String): Text? {
 
@@ -286,7 +281,7 @@ class TextData {
      * Reads name of the text to be found and returns it text if
      * it exists.
      * @param message message which prints with calling this method.
-     * @return text
+     * @return Text type object
      */
     fun getTextData(message: String = "Input name of a text"): Text {
 
@@ -365,10 +360,9 @@ fun exit(): Nothing {
 }
 
 
-/** Singleton used for reading commands from console and storing data about
+/** Reads commands from the console and storing data about
  *  the functions they should execute.
  */
-
 class CommandCenter(
     private val textData: TextData,
     private val textReader: TextReader,
@@ -383,9 +377,7 @@ class CommandCenter(
     private val commandsList = listOf(exitCommand, addCommand, showStatisticsCommand, removeTextCommand)
     private val commandsNames = commandsList.map { it.name }
 
-    /** Enumerating of available commands names and functions conjugated
-     *  with them.
-     */
+    /** Stores command and its name */
     class Command(val name: String, val executingFun: () -> Unit)
 
     /** Prints list of names of available commands, requests the name and
@@ -405,32 +397,6 @@ class CommandCenter(
 
 }
 
-/** Interface used to existing commands objects, whose exe value
- *  stores function which calls after request due the program.
- */
-interface InputOutcomeCommand {
-    /** Function returned in a Main.requestInput method for returned to
-     *  main menu of application or continuation of the process.
-     */
-    val exe: () -> Unit
-}
-
-/** If called exe of this object, program continue executing
- * without changes.
- */
-class ContinueCommand : InputOutcomeCommand {
-    override val exe: () -> Unit = {}
-}
-
-/**
- * If called exe of this object, a custom ReturnException is thrown
- * and process of executing some called command interrupted. Exception
- * catches in mainCycle and program command request is repeated.
- */
-class ReturnCommand : InputOutcomeCommand {
-    override val exe: () -> Unit = throw ReturnException()
-}
-
 
 /** Custom exception being thrown if user want to return to the menu. */
 class ReturnException : Exception()
@@ -446,7 +412,7 @@ class InvalidInputTypeException : Exception()
 class InvalidElemInInputException : Exception()
 
 
-/** Method repeating the process of calling functions returned by
+/** Function repeating the process of calling functions returned by
  *  CommandCenter. If ReturnException was thrown, it is caught here,
  *  last iteration breaks and new one is called.
  */
@@ -462,7 +428,7 @@ fun workCycle(commandCenter: CommandCenter) {
 }
 
 
-/** Method reads from console input, check if it isn't available, repeat the request from the console
+/** Function reads from console input, check if it isn't available, repeat the request from the console
  *  in this case and convert input in type T if possible, else throws an exception and repeat the
  *  request.
  *
@@ -535,8 +501,35 @@ inline fun <reified T> requestInput(
             continue@readingAndChangingTypeCycle
         }
     }
+
 }
 
+
+/** Interface used to existing commands objects, whose exe value
+ *  stores function which calls after requesting from console in
+ *  requestInput function.
+ */
+interface InputOutcomeCommand {
+    /** Function returned in a Main.requestInput method for returned to
+     *  main menu of application or continuation of the process.
+     */
+    val exe: () -> Unit
+}
+
+/** If called exe of this object, program continue executing
+ * without changes.
+ */
+class ContinueCommand : InputOutcomeCommand {
+    override val exe: () -> Unit = {}
+}
+
+/** If called exe of this object, a custom ReturnException is thrown
+ *  and process of executing some called command interrupted. Exception
+ *  catches in mainCycle and program command request is repeated.
+ */
+class ReturnCommand : InputOutcomeCommand {
+    override val exe: () -> Unit = throw ReturnException()
+}
 
 fun main() {
 
