@@ -6,89 +6,85 @@ import org.jetbrains.letsPlot.geom.*
 import kotlin.reflect.typeOf
 
 
-/** Gives statistics of saved texts.
+/** Recognizes the name of the text, which
+ *  user want to see statistics about and type of output.
+ *  It calls methods of graphic building or printing data in console,
+ *  build required for it objects.
  */
-class StatisticBuilder {
+fun getStatistics(textData: TextData) {
 
-    /** Recognizes the name of the text, which
-     *  user want to see statistics about and type of output.
-     *  It calls methods of graphic building or printing data in console,
-     *  build required for it objects.
-     */
-    fun getStatistics(textData: TextData) {
-
-        if (!textData.haveText()) {
-            println("No saved texts")
-            return
-        }
-
-        val text = textData.getTextData("Input name of a text which you want to see statistics about.")
-
-        var counter = 1
-        val wordsCountsMap = text.getSentencesList().map { counter++ to it.getWordsCount() }
-
-        println("Print \"console\" if you have see data in console, \"graphic\" if you have see histogram and \"both\" if you have see them together:")
-
-        val request = requestInput(listOf("console", "graphic", "both"))
-        request.first.exe()
-
-        when (request.second) {
-            "console" -> printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
-            "graphic" -> buildGraphic(text.getName(), wordsCountsMap.toMap())
-            "both" -> {
-                printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
-                buildGraphic(text.getName(), wordsCountsMap.toMap())
-            }
-        }
-
+    if (!textData.haveText()) {
+        println("No saved texts")
+        return
     }
 
-    /** Builds bar chart with data of mapOfSentenceNumToItsSize and saves image in file.
-     *  @param textName name of texts, which user want to see statistics about.
-     *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
-     */
-    private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+    val text = textData.getTextData("Input name of a text which you want to see statistics about.")
 
-        val data = mapOf(
-            "words count" to mapOfSentenceNumToItsSize.map { it.value.toFloat() / mapOfSentenceNumToItsSize.size },
-        )
+    var counter = 1
+    val wordsCountsMap = text.getSentencesList().map { counter++ to it.getWordsCount() }
 
-        val fig = ggplot(data) +
-                geomBar(
-                    color = "white",
-                    fill = "red"
-                ) { x = "words count" } +
-                geomArea(
-                    stat = Stat.density(),
-                    color = "white",
-                    fill = "pink",
-                    alpha = 0.4
-                ) { x = "words count" } +
-                ggsize(1400, 800)
+    println("Print \"console\" if you have see data in console, \"graphic\" if you have see histogram and \"both\" if you have see them together:")
 
-        println("Graphic was save in ${ggsave(fig, "$textName.png")}")
-        fig.show()
+    val request = requestInput(listOf("console", "graphic", "both"))
+    request.first.exe()
 
+    when (request.second) {
+        "console" -> printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
+        "graphic" -> buildGraphic(text.getName(), wordsCountsMap.toMap())
+        "both" -> {
+            printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
+            buildGraphic(text.getName(), wordsCountsMap.toMap())
+        }
     }
 
-    /** Prints statistics according to data from mapOfSentenceNumToItsSize.
-     *  @param textName name of texts, which user want to see statistics about.
-     *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
-     */
-    private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+}
 
-        val sectionTitle = "Text name: $textName"
-        println("-".repeat(sectionTitle.length))
-        println(sectionTitle)
-        println("-".repeat(sectionTitle.length))
+/** Builds bar chart with data of mapOfSentenceNumToItsSize and saves image in file.
+ *  @param textName name of texts, which user want to see statistics about.
+ *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
+ */
+private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
 
-        val totalSentencesCount = mapOfSentenceNumToItsSize.size
-        var totalWordsCount = 0
-        for (sentInfo in mapOfSentenceNumToItsSize) {
-            totalWordsCount += sentInfo.value
-        }
-        println(
-            """
+    val data = mapOf(
+        "words count" to mapOfSentenceNumToItsSize.map { it.value.toFloat() / mapOfSentenceNumToItsSize.size },
+    )
+
+    val fig = ggplot(data) +
+            geomBar(
+                color = "white",
+                fill = "red"
+            ) { x = "words count" } +
+            geomArea(
+                stat = Stat.density(),
+                color = "white",
+                fill = "pink",
+                alpha = 0.4
+            ) { x = "words count" } +
+            ggsize(1400, 800)
+
+    println("Graphic was save in ${ggsave(fig, "$textName.png")}")
+    fig.show()
+
+}
+
+/** Prints statistics according to data from mapOfSentenceNumToItsSize.
+ *  @param textName name of texts, which user want to see statistics about.
+ *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
+ */
+private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+
+    val sectionTitle = "Text name: $textName"
+    println("-".repeat(sectionTitle.length))
+    println(sectionTitle)
+    println("-".repeat(sectionTitle.length))
+
+    val totalSentencesCount = mapOfSentenceNumToItsSize.size
+    var totalWordsCount = 0
+    for (sentInfo in mapOfSentenceNumToItsSize) {
+        totalWordsCount += sentInfo.value
+    }
+    println(
+        """
             |Statistics:
             |[count of sentences]: 
             |--- $totalSentencesCount
@@ -99,124 +95,118 @@ class StatisticBuilder {
             |[num of sentence: count of words in it]:
             |--- ${mapOfSentenceNumToItsSize.toList().joinToString("; ") { "${it.first} contains ${it.second}" }}.
             """.trimMargin()
-        )
-        println("-".repeat(sectionTitle.length))
-        println("Done!\n")
-    }
+    )
+    println("-".repeat(sectionTitle.length))
+    println("Done!\n")
 }
 
 
-/** Used for reading text from a file or console. */
-class TextReader {
+/** Asks the user which where they want to read the text from and
+ *  calls special for file- and console- reading methods according the answer.
+ */
+fun readNewText(textData: TextData) {
 
-    /** Asks the user which where they want to read the text from and
-     *  calls special for file- and console- reading methods according the answer.
-     */
-    fun readNewText(textData: TextData) {
+    println("Where do you want to add the text: from the console or a file?")
 
-        println("Where do you want to add the text: from the console or a file?")
+    val kindOfSource = requestInput(listOf("console", "file"))
+    kindOfSource.first.exe()
 
-        val kindOfSource = requestInput(listOf("console", "file"))
-        kindOfSource.first.exe()
-
-        when (kindOfSource.second) {
-            "console" -> readFromConsole(textData)
-            "file" -> readFromFile(textData)
-        }
+    when (kindOfSource.second) {
+        "console" -> readFromConsole(textData)
+        "file" -> readFromFile(textData)
     }
-
-
-    /** Read from console the name of text, checks that it hasn't saved yet and its contents,
-     *  asks if entered text is not correct and re-calls itself or
-     *  calls method of adding received text to data.
-     */
-    private fun readFromConsole(textData: TextData) {
-
-        println("Input name of a text:")
-        if (textData.haveText()) println("Unavailable(existing) names: ${textData.getTextNamesInString()}.")
-        val nameRequest = requestInput(unavailableInputs = textData.getTextNamesList())
-        nameRequest.first.exe()
-
-        val name = nameRequest.second.toString()
-
-        println("Input a text content(after input text press enter twice):")
-        var content = ""
-
-        var itWasNewParYet = false
-        readCycle@ while (true) {
-            val nextPart = readln()
-            if (nextPart.isEmpty()) {
-                if (itWasNewParYet) break@readCycle
-                else {
-                    content += "\n"
-                    itWasNewParYet = true
-                }
-            } else {
-                itWasNewParYet = false
-                content += "$nextPart\n"
-            }
-        }
-
-        println("Was input data right?[yes, no]:")
-
-        val correctInputRequest = requestInput(listOf("yes", "no"))
-        correctInputRequest.first.exe()
-
-        if (correctInputRequest.second == "yes") addTextToData(textData, name, content)
-        else readFromConsole(textData)
-    }
-
-    /** Asks for the name of text, path to file to read text from,
-     *  checks for its existing, reads contents and,
-     *  asks if entered names is not correct and re-calls itself or
-     *  calls method of adding received text to data.
-     */
-    private fun readFromFile(textData: TextData) {
-
-        println("Input a name of a text:")
-        val name = readln()
-
-        println("Input path to file:")
-        val contentsFile: File
-
-        pathReadCycle@ while (true) {
-            val pathRequest = requestInput<String>()
-            pathRequest.first.exe()
-            val filePath = pathRequest.second.toString()
-
-            val testFile = File(filePath)
-
-            if (!testFile.exists()) {
-                println("Incorrect path. Repeat the input:")
-                continue@pathReadCycle
-            } else {
-                contentsFile = testFile
-                break@pathReadCycle
-            }
-        }
-
-        val content = contentsFile.readText()
-
-        print("Input was correct?[yes, no]: ")
-        val correctInputRequest = requestInput(listOf("yes", "no"))
-        correctInputRequest.first.exe()
-
-        when (correctInputRequest.second) {
-            "yes" -> addTextToData(textData, name, content)
-            "no" -> readFromFile(textData)
-        }
-    }
-
-    /**
-     * Calls method of TextData class to add new text in set
-     * of tracked texts.
-     * @param textName name of new text.
-     * @param content content of new text.
-     */
-    private fun addTextToData(textData: TextData, textName: String, content: String) =
-        textData.addNewText(textName, content)
-
 }
+
+/** Read from console the name of text, checks that it hasn't saved yet and its contents,
+ *  asks if entered text is not correct and re-calls itself or
+ *  calls method of adding received text to data.
+ */
+private fun readFromConsole(textData: TextData) {
+
+    println("Input name of a text:")
+    if (textData.haveText()) println("Unavailable(existing) names: ${textData.getTextNamesInString()}.")
+    val nameRequest = requestInput(unavailableInputs = textData.getTextNamesList())
+    nameRequest.first.exe()
+
+    val name = nameRequest.second.toString()
+
+    println("Input a text content(after input text press enter twice):")
+    var content = ""
+
+    var itWasNewParYet = false
+    readCycle@ while (true) {
+        val nextPart = readln()
+        if (nextPart.isEmpty()) {
+            if (itWasNewParYet) break@readCycle
+            else {
+                content += "\n"
+                itWasNewParYet = true
+            }
+        } else {
+            itWasNewParYet = false
+            content += "$nextPart\n"
+        }
+    }
+
+    println("Was input data right?[yes, no]:")
+
+    val correctInputRequest = requestInput(listOf("yes", "no"))
+    correctInputRequest.first.exe()
+
+    if (correctInputRequest.second == "yes") addTextToData(textData, name, content)
+    else readFromConsole(textData)
+}
+
+/** Asks for the name of text, path to file to read text from,
+ *  checks for its existing, reads contents and,
+ *  asks if entered names is not correct and re-calls itself or
+ *  calls method of adding received text to data.
+ */
+private fun readFromFile(textData: TextData) {
+
+    println("Input a name of a text:")
+    val name = readln()
+
+    println("Input path to file:")
+    val contentsFile: File
+
+    pathReadCycle@ while (true) {
+        val pathRequest = requestInput<String>()
+        pathRequest.first.exe()
+        val filePath = pathRequest.second.toString()
+
+        val testFile = File(filePath)
+
+        if (!testFile.exists()) {
+            println("Incorrect path. Repeat the input:")
+            continue@pathReadCycle
+        } else {
+            contentsFile = testFile
+            break@pathReadCycle
+        }
+    }
+
+    val content = contentsFile.readText()
+
+    print("Input was correct?[yes, no]: ")
+    val correctInputRequest = requestInput(listOf("yes", "no"))
+    correctInputRequest.first.exe()
+
+    when (correctInputRequest.second) {
+        "yes" -> addTextToData(textData, name, content)
+        "no" -> readFromFile(textData)
+    }
+}
+
+/**
+ * Calls method of TextData class to add new text in set
+ * of tracked texts.
+ * @param textName name of new text.
+ * @param content content of new text.
+ */
+private fun addTextToData(textData: TextData, textName: String, content: String) =
+    textData.addNewText(textName, content)
+
 
 /** Stores data about tracking texts,
  *  includes methods for work with them due the adding.
@@ -226,14 +216,12 @@ class TextData {
     /** list of monitored texts. */
     private val textsList = mutableListOf<Text>()
 
-
     fun haveText(): Boolean = textsList.isNotEmpty()
 
     /** Method for removing text from watch list. Asks for a name of a text
      *  and if it's being tracked, remove it from the textsList.
      */
     fun removeText() {
-
 
         if (!haveText()) {
             println("No saved texts")
@@ -365,13 +353,11 @@ fun exit(): Nothing {
  */
 class CommandCenter(
     private val textData: TextData,
-    private val textReader: TextReader,
-    private val statisticBuilder: StatisticBuilder
 ) {
 
     private val exitCommand = Command("exit", ::exit)
-    private val addCommand = Command("add text") { textReader.readNewText(textData) }
-    private val showStatisticsCommand = Command("show statistics") { statisticBuilder.getStatistics(textData) }
+    private val addCommand = Command("add text") { readNewText(textData) }
+    private val showStatisticsCommand = Command("show statistics") { getStatistics(textData) }
     private val removeTextCommand = Command("remove text") { textData.removeText() }
 
     private val commandsList = listOf(exitCommand, addCommand, showStatisticsCommand, removeTextCommand)
@@ -531,13 +517,12 @@ class ReturnCommand : InputOutcomeCommand {
     override val exe: () -> Unit = throw ReturnException()
 }
 
+
 fun main() {
 
     val textData = TextData()
-    val statisticBuilder = StatisticBuilder()
-    val textReader = TextReader()
 
-    val commandCenter = CommandCenter(textData, textReader, statisticBuilder)
+    val commandCenter = CommandCenter(textData)
 
     workCycle(commandCenter)
 }
