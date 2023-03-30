@@ -5,6 +5,7 @@ import org.jetbrains.letsPlot.export.ggsave
 import org.jetbrains.letsPlot.geom.*
 import kotlinx.cli.*
 
+
 /** Recognizes the name of the text, which
  *  user want to see statistics about and type of output.
  *  It calls methods of graphic building or printing data in console,
@@ -22,8 +23,10 @@ fun getStatistics(textData: TextData) {
     var counter = 1
     val wordsCountsMap = text.getSentencesList().map { counter++ to it.getWordsCount() }
 
-    println("Print \"console\" if you have see data in console, \"graphic\" if you have see histogram \n" +
-            "and \"both\" if you have see them together:")
+    println(
+        "Print \"console\" if you have see data in console, \"graphic\" if you have see histogram \n" +
+                "and \"both\" if you have see them together:"
+    )
 
     val request = requestInput(listOf("console", "graphic", "both"))
     request.first.exe()
@@ -42,7 +45,7 @@ fun getStatistics(textData: TextData) {
  *  @param textName name of texts, which user want to see statistics about.
  *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
  */
-private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
 
     val data = mapOf(
         "words count" to mapOfSentenceNumToItsSize.map { it.value.toFloat() / mapOfSentenceNumToItsSize.size },
@@ -70,7 +73,7 @@ private fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, I
  *  @param textName name of texts, which user want to see statistics about.
  *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
  */
-private fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
 
     val sectionTitle = "Text name: $textName"
     println("-".repeat(sectionTitle.length))
@@ -120,7 +123,7 @@ fun readNewText(textData: TextData) {
  *  asks if entered text is not correct and re-calls itself or
  *  calls method of adding received text to data.
  */
-private fun readFromConsole(textData: TextData) {
+fun readFromConsole(textData: TextData) {
 
     println("Input name of a text:")
     if (textData.haveText()) println("Unavailable(existing) names: ${textData.getTextNamesInString()}.")
@@ -161,7 +164,7 @@ private fun readFromConsole(textData: TextData) {
  *  asks if entered names is not correct and re-calls itself or
  *  calls method of adding received text to data.
  */
-private fun readFromFile(textData: TextData) {
+fun readFromFile(textData: TextData) {
 
     println("Input a name of a text:")
     val name = readln()
@@ -203,7 +206,7 @@ private fun readFromFile(textData: TextData) {
  * @param textName name of new text.
  * @param content content of new text.
  */
-private fun addTextToData(textData: TextData, textName: String, content: String) =
+fun addTextToData(textData: TextData, textName: String, content: String) =
     textData.addNewText(textName, content)
 
 
@@ -356,6 +359,37 @@ class CommandCenter(private val textData: TextData) {
 
     private val commandsList = listOf(exitCommand, addCommand, showStatisticsCommand, removeTextCommand)
     private val commandsNames = commandsList.map { it.name }
+
+
+    private val parser = ArgParser("Text Analyzer", useDefaultHelpShortName = true)
+
+    private val add by parser.option(
+        ArgType.String, "add", "a",
+        "adds new text to data", "Add warn"
+    )
+    private val remove by parser.option(
+        ArgType.String, "remove", "r",
+        "removes text from data", "Remove warn"
+    )
+    private val stat by parser.option(
+        ArgType.String, "statistics", "s",
+        "shows statistics", "Stat warn"
+    )
+    private val exit by parser.option(
+        ArgType.String, "exit", "e",
+        "exit from program", "exit warn"
+    )
+
+//    fun parseCommand(args: Array<String>) {
+//        parser.parse(args)
+//
+//        when (add) {
+//            "" -> readNewText(textData)
+//            null -> {}
+//            else ->
+//        }
+//    }
+
 
     /** Stores command and its name */
     private class Command(val name: String, val executingFun: () -> Unit)
