@@ -3,8 +3,7 @@ import kotlin.system.exitProcess
 import org.jetbrains.letsPlot.*
 import org.jetbrains.letsPlot.export.ggsave
 import org.jetbrains.letsPlot.geom.*
-import kotlin.reflect.typeOf
-
+import kotlinx.cli.*
 
 /** Recognizes the name of the text, which
  *  user want to see statistics about and type of output.
@@ -23,7 +22,8 @@ fun getStatistics(textData: TextData) {
     var counter = 1
     val wordsCountsMap = text.getSentencesList().map { counter++ to it.getWordsCount() }
 
-    println("Print \"console\" if you have see data in console, \"graphic\" if you have see histogram and \"both\" if you have see them together:")
+    println("Print \"console\" if you have see data in console, \"graphic\" if you have see histogram \n" +
+            "and \"both\" if you have see them together:")
 
     val request = requestInput(listOf("console", "graphic", "both"))
     request.first.exe()
@@ -36,7 +36,6 @@ fun getStatistics(textData: TextData) {
             buildGraphic(text.getName(), wordsCountsMap.toMap())
         }
     }
-
 }
 
 /** Builds bar chart with data of mapOfSentenceNumToItsSize and saves image in file.
@@ -128,16 +127,16 @@ private fun readFromConsole(textData: TextData) {
     val nameRequest = requestInput(unavailableInputs = textData.getTextNamesList())
     nameRequest.first.exe()
 
-    val name = nameRequest.second.toString()
+    val name = nameRequest.second!!
 
     println("Input a text content(after input text press enter twice):")
     var content = ""
 
     var itWasNewParYet = false
-    readCycle@ while (true) {
+    while (true) {
         val nextPart = readln()
         if (nextPart.isEmpty()) {
-            if (itWasNewParYet) break@readCycle
+            if (itWasNewParYet) break
             else {
                 content += "\n"
                 itWasNewParYet = true
@@ -170,19 +169,19 @@ private fun readFromFile(textData: TextData) {
     println("Input path to file:")
     val contentsFile: File
 
-    pathReadCycle@ while (true) {
-        val pathRequest = requestInput<String>()
+    while (true) {
+        val pathRequest = requestInput()
         pathRequest.first.exe()
-        val filePath = pathRequest.second.toString()
+        val filePath = pathRequest.second!!
 
         val testFile = File(filePath)
 
         if (!testFile.exists()) {
             println("Incorrect path. Repeat the input:")
-            continue@pathReadCycle
+            continue
         } else {
             contentsFile = testFile
-            break@pathReadCycle
+            break
         }
     }
 
@@ -272,20 +271,18 @@ class TextData {
      * @return Text type object
      */
     fun getTextData(message: String = "Input name of a text"): Text {
-
-
         println(message)
         println("Saved texts: ${getTextNamesInString()}.")
 
         val nameRequest = requestInput(getTextNamesList())
         nameRequest.first.exe()
 
-        return getTextByName(nameRequest.second.toString())!!
+        return getTextByName(nameRequest.second!!)!!
     }
 
 
     /** Object used for getting text from the string information. */
-    object TextAnalyzer {
+    private object TextAnalyzer {
 
         private val DELIMITERS = Regex("[!?.]+\\s+")
         private val WHITESPACES = Regex("\\s+")
@@ -297,7 +294,6 @@ class TextData {
          * this list, input field name, and count of sentences in content.
          */
         fun getTextObjFromContents(name: String, content: String): Text {
-
 
             var sentencesCount = 1
             val listOfSentences = mutableListOf<Text.Sentence>()
@@ -351,9 +347,7 @@ fun exit(): Nothing {
 /** Reads commands from the console and storing data about
  *  the functions they should execute.
  */
-class CommandCenter(
-    private val textData: TextData,
-) {
+class CommandCenter(private val textData: TextData) {
 
     private val exitCommand = Command("exit", ::exit)
     private val addCommand = Command("add text") { readNewText(textData) }
@@ -364,7 +358,7 @@ class CommandCenter(
     private val commandsNames = commandsList.map { it.name }
 
     /** Stores command and its name */
-    class Command(val name: String, val executingFun: () -> Unit)
+    private class Command(val name: String, val executingFun: () -> Unit)
 
     /** Prints list of names of available commands, requests the name and
      *  returns corresponding to entered name function.
@@ -376,26 +370,11 @@ class CommandCenter(
         val commandNameRequest = requestInput(commandsNames)
         commandNameRequest.first.exe()
 
-        val funName = commandNameRequest.second.toString()
+        val funName = commandNameRequest.second
 
         return commandsList.find { it.name == funName }!!.executingFun
     }
-
 }
-
-
-/** Custom exception being thrown if user want to return to the menu. */
-class ReturnException : Exception()
-
-/** Custom exception being thrown if input can't be converted
- *  to the requested type.
- */
-class InvalidInputTypeException : Exception()
-
-/** Custom exception being thrown if input doesn't match the list
- *  of possible values.
- */
-class InvalidElemInInputException : Exception()
 
 
 /** Function repeating the process of calling functions returned by
@@ -403,12 +382,12 @@ class InvalidElemInInputException : Exception()
  *  last iteration breaks and new one is called.
  */
 fun workCycle(commandCenter: CommandCenter) {
-    mainCycle@ while (true) {
+    while (true) {
         try {
             (commandCenter.readCommandFromConsole())()
         } catch (e: ReturnException) {
             println("You have been returned in main menu.")
-            continue@mainCycle
+            continue
         }
     }
 }
@@ -424,72 +403,30 @@ fun workCycle(commandCenter: CommandCenter) {
  *  @return a pair of function, which could be called after the request from this function to return
  *  if user want it or continue and value that the user has selected from the list of available.
  */
-inline fun <reified T> requestInput(
-    availableInputs: List<T>? = null,
-    unavailableInputs: List<T>? = null
-): Pair<InputOutcomeCommand, Any> {
+fun requestInput(
+    availableInputs: List<Any>? = null,
+    unavailableInputs: List<Any>? = null
+): Pair<InputOutcomeCommand, String?> {
 
-    var inputT: Any
+    val regexAvailableInputs = availableInputs?.joinToString("|")?.toRegex() ?: Regex(".*")
+    val regexUnavailableInputs = unavailableInputs?.joinToString("|")?.toRegex() ?: Regex("")
+    val returnRegex = Regex("return")
 
-    readingAndChangingTypeCycle@ while (true) {
-
+    while (true) {
         val input = readln().trim()
-        if (input == "return") return Pair(ReturnCommand(), "")
 
-        try {
-            inputT = when (typeOf<T>()) {
-                typeOf<Int>() -> input.toInt()
-                typeOf<Double>() -> input.toDouble()
-                typeOf<Boolean>() -> input.toBoolean()
-                typeOf<Byte>() -> input.toByte()
-                typeOf<Long>() -> input.toLong()
-                typeOf<Float>() -> input.toFloat()
-                typeOf<Char>() -> {
-                    if (input.trim().length == 1) {
-                        input.trim().toCharArray()[0]
-                    } else throw InvalidInputTypeException()
-                }
+        return when {
+            input.matches(regexAvailableInputs) && !input.matches(regexUnavailableInputs) ->
+                ContinueCommand() to input
 
-                typeOf<String>() -> input
-                else -> throw InvalidInputTypeException()
+            input.matches(returnRegex) -> ReturnCommand() to null
+            else -> {
+                println("There isn't this elem in list of available inputs. Try to repeat or enter return to exit in main menu: ")
+                continue
             }
-
-            return when {
-                availableInputs != null && unavailableInputs != null -> {
-                    if (inputT.toString() in availableInputs.map { it.toString() } &&
-                        inputT.toString() !in unavailableInputs.map { it.toString() }) Pair(ContinueCommand(), inputT)
-                    else throw InvalidElemInInputException()
-                }
-
-                availableInputs != null -> {
-                    if (inputT.toString() in availableInputs.map { it.toString() }) Pair(ContinueCommand(), inputT)
-                    else throw InvalidElemInInputException()
-                }
-
-                unavailableInputs != null -> {
-                    if (inputT.toString() !in unavailableInputs.map { it.toString() }) Pair(ContinueCommand(), inputT)
-                    else throw InvalidElemInInputException()
-                }
-
-                else -> Pair(ContinueCommand(), inputT)
-            }
-
-
-        } catch (e: NumberFormatException) {
-            continue@readingAndChangingTypeCycle
-        } catch (e: InvalidInputTypeException) {
-            continue@readingAndChangingTypeCycle
-        } catch (e: InvalidElemInInputException) {
-            println(
-                "There isn't this elem in list of available inputs. " +
-                        "Try to repeat or enter return to exit in main menu: "
-            )
-            continue@readingAndChangingTypeCycle
         }
     }
-
 }
-
 
 /** Interface used to existing commands objects, whose exe value
  *  stores function which calls after requesting from console in
@@ -517,11 +454,13 @@ class ReturnCommand : InputOutcomeCommand {
     override val exe: () -> Unit = throw ReturnException()
 }
 
+/** Custom exception being thrown if user want to return to the menu. */
+class ReturnException : Exception()
+
 
 fun main() {
 
     val textData = TextData()
-
     val commandCenter = CommandCenter(textData)
 
     workCycle(commandCenter)

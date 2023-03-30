@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
     implementation("org.jetbrains.lets-plot:lets-plot-kotlin:4.0.0")
     implementation("org.jetbrains.lets-plot:lets-plot-batik:3.1.0")
     implementation("org.jetbrains.lets-plot:lets-plot-jfx:3.1.0")
