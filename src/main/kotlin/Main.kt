@@ -1,55 +1,26 @@
+@file:OptIn(ExperimentalCli::class)
+
 import java.io.File
 import kotlin.system.exitProcess
 import org.jetbrains.letsPlot.*
 import org.jetbrains.letsPlot.export.ggsave
 import org.jetbrains.letsPlot.geom.*
 import kotlinx.cli.*
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import java.io.FileReader
 
 
-/** Recognizes the name of the text, which
- *  user want to see statistics about and type of output.
- *  It calls methods of graphic building or printing data in console,
- *  build required for it objects.
- */
-fun getStatistics(textData: TextData) {
+val WHITESPACES = Regex("\\s+")
 
-    if (!textData.haveText()) {
-        println("No saved texts")
-        return
-    }
-
-    val text = textData.getTextData("Input name of a text which you want to see statistics about.")
-
-    var counter = 1
-    val wordsCountsMap = text.getSentencesList().map { counter++ to it.getWordsCount() }
-
-    println(
-        "Print \"console\" if you have see data in console, \"graphic\" if you have see histogram \n" +
-                "and \"both\" if you have see them together:"
-    )
-
-    val request = requestInput(listOf("console", "graphic", "both"))
-    request.first.exe()
-
-    when (request.second) {
-        "console" -> printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
-        "graphic" -> buildGraphic(text.getName(), wordsCountsMap.toMap())
-        "both" -> {
-            printStatisticsInConsole(text.getName(), wordsCountsMap.toMap())
-            buildGraphic(text.getName(), wordsCountsMap.toMap())
-        }
-    }
-}
 
 /** Builds bar chart with data of mapOfSentenceNumToItsSize and saves image in file.
  *  @param textName name of texts, which user want to see statistics about.
  *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
  */
-fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
+fun buildGraphic(textName: String, listOfSentenceSizes: List<Int>) {
 
-    val data = mapOf(
-        "words count" to mapOfSentenceNumToItsSize.map { it.value.toFloat() / mapOfSentenceNumToItsSize.size },
-    )
+    val data = mapOf("words count" to listOfSentenceSizes.map { it.toFloat() })
 
     val fig = ggplot(data) +
             geomBar(
@@ -66,7 +37,6 @@ fun buildGraphic(textName: String, mapOfSentenceNumToItsSize: Map<Int, Int>) {
 
     println("Graphic was save in ${ggsave(fig, "$textName.png")}")
     fig.show()
-
 }
 
 /** Prints statistics according to data from mapOfSentenceNumToItsSize.
@@ -103,34 +73,11 @@ fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<In
 }
 
 
-/** Asks the user which where they want to read the text from and
- *  calls special for file- and console- reading methods according the answer.
- */
-fun readNewText(textData: TextData) {
-
-    println("Where do you want to add the text: from the console or a file?")
-
-    val kindOfSource = requestInput(listOf("console", "file"))
-    kindOfSource.first.exe()
-
-    when (kindOfSource.second) {
-        "console" -> readFromConsole(textData)
-        "file" -> readFromFile(textData)
-    }
-}
-
 /** Read from console the name of text, checks that it hasn't saved yet and its contents,
  *  asks if entered text is not correct and re-calls itself or
  *  calls method of adding received text to data.
  */
-fun readFromConsole(textData: TextData) {
-
-    println("Input name of a text:")
-    if (textData.haveText()) println("Unavailable(existing) names: ${textData.getTextNamesInString()}.")
-    val nameRequest = requestInput(unavailableInputs = textData.getTextNamesList())
-    nameRequest.first.exe()
-
-    val name = nameRequest.second!!
+fun readFromConsole(textData: TextData, textName: String) {
 
     println("Input a text content(after input text press enter twice):")
     var content = ""
@@ -150,54 +97,22 @@ fun readFromConsole(textData: TextData) {
         }
     }
 
-    println("Was input data right?[yes, no]:")
-
-    val correctInputRequest = requestInput(listOf("yes", "no"))
-    correctInputRequest.first.exe()
-
-    if (correctInputRequest.second == "yes") addTextToData(textData, name, content)
-    else readFromConsole(textData)
+    addTextToData(textData, textName, content)
 }
+
 
 /** Asks for the name of text, path to file to read text from,
  *  checks for its existing, reads contents and,
  *  asks if entered names is not correct and re-calls itself or
  *  calls method of adding received text to data.
  */
-fun readFromFile(textData: TextData) {
-
-    println("Input a name of a text:")
-    val name = readln()
+fun readFromFile(textData: TextData, textName: String, path: String) {
 
     println("Input path to file:")
-    val contentsFile: File
-
-    while (true) {
-        val pathRequest = requestInput()
-        pathRequest.first.exe()
-        val filePath = pathRequest.second!!
-
-        val testFile = File(filePath)
-
-        if (!testFile.exists()) {
-            println("Incorrect path. Repeat the input:")
-            continue
-        } else {
-            contentsFile = testFile
-            break
-        }
-    }
-
+    val contentsFile = File(path)
     val content = contentsFile.readText()
 
-    print("Input was correct?[yes, no]: ")
-    val correctInputRequest = requestInput(listOf("yes", "no"))
-    correctInputRequest.first.exe()
-
-    when (correctInputRequest.second) {
-        "yes" -> addTextToData(textData, name, content)
-        "no" -> readFromFile(textData)
-    }
+    addTextToData(textData, textName, content)
 }
 
 /**
@@ -216,32 +131,36 @@ fun addTextToData(textData: TextData, textName: String, content: String) =
 class TextData {
 
     /** list of monitored texts. */
-    private val textsList = mutableListOf<Text>()
+    private val textsList: MutableSet<Text>
 
-    fun haveText(): Boolean = textsList.isNotEmpty()
+    init {
+        textsList = JSONReaderWriter.readSavedTexts()
+    }
+
+    private fun haveText(): Boolean = textsList.isNotEmpty()
 
     /** Method for removing text from watch list. Asks for a name of a text
      *  and if it's being tracked, remove it from the textsList.
      */
-    fun removeText() {
+    fun removeText(name: String) {
 
-        if (!haveText()) {
-            println("No saved texts")
-            return
+        val removingText = getTextByName(name)
+        if (removingText == null) println("No text with name $name")
+        else {
+            textsList.remove(removingText)
+            println("Text ${removingText.getName()} removed.")
+            JSONReaderWriter.removeFromDirectory(name)
         }
 
-        val removingText = getTextData("Input name of text which you want to remove.")
-        textsList.remove(removingText)
-
-        println("Text ${removingText.getName()} removed.")
     }
+
 
     /** Returns Text object whose name matches searchingName or null
      *  if there is no text with same name in the textsList.
      *  @param searchingName name of the text to be found.
      *  @return the text with searchingName name or null.
      */
-    private fun getTextByName(searchingName: String): Text? {
+    fun getTextByName(searchingName: String): Text? {
 
         for (text in textsList) if (text.getName() == searchingName) return text
         return null
@@ -263,26 +182,50 @@ class TextData {
      *  textName and content and adds it in textsList.
      */
     fun addNewText(textName: String, content: String) {
-        textsList.add(TextAnalyzer.getTextObjFromContents(textName, content))
+        val newText = TextAnalyzer.getTextObjFromContents(textName, content)
+        textsList.add(newText)
+        JSONReaderWriter.writeInJSON(newText)
     }
 
 
-    /**
-     * Reads name of the text to be found and returns it text if
-     * it exists.
-     * @param message message which prints with calling this method.
-     * @return Text type object
-     */
-    fun getTextData(message: String = "Input name of a text"): Text {
-        println(message)
-        println("Saved texts: ${getTextNamesInString()}.")
+    private object JSONReaderWriter {
+        private val gsonPretty: Gson = GsonBuilder().setPrettyPrinting().create()
+        private val savedTextsDirectory: File = File("savedTexts")
+        private val savedTextsFiles: Array<File>
 
-        val nameRequest = requestInput(getTextNamesList())
-        nameRequest.first.exe()
+        init {
+            if (!savedTextsDirectory.exists()) savedTextsDirectory.mkdir()
+            savedTextsFiles =
+                savedTextsDirectory.listFiles { _, filename ->
+                    filename.split(".").last() == "json"
+                } ?: emptyArray()
+        }
 
-        return getTextByName(nameRequest.second!!)!!
+        fun removeFromDirectory(name: String) {
+            savedTextsFiles.find { it.name == name }?.delete() ?: println("No file with name $name in directory")
+        }
+
+        fun writeInJSON(text: Text) {
+            val jsonFileText = gsonPretty.toJson(text)
+
+            val jsonFile = File("${savedTextsDirectory.path}/${text.getName()}.json")
+            jsonFile.createNewFile()
+            jsonFile.writeText(jsonFileText)
+        }
+
+        fun readFromJSON(jsonFile: File): Text {
+            return gsonPretty.fromJson(FileReader(jsonFile), Text::class.java)
+        }
+
+        fun readSavedTexts(): MutableSet<Text> {
+            val textsList = mutableListOf<Text>()
+            for (file in savedTextsFiles) {
+                textsList.add(readFromJSON(file))
+            }
+            return textsList.toMutableSet()
+        }
+
     }
-
 
     /** Object used for getting text from the string information. */
     private object TextAnalyzer {
@@ -330,13 +273,11 @@ class TextData {
 
         fun getSentencesList() = sentencesList
 
-
         /** Stores information about count of words. */
         data class Sentence(private val wordsCount: Int) {
             fun getWordsCount() = wordsCount
         }
     }
-
 }
 
 
@@ -352,61 +293,125 @@ fun exit(): Nothing {
  */
 class CommandCenter(private val textData: TextData) {
 
-    private val exitCommand = Command("exit", ::exit)
-    private val addCommand = Command("add text") { readNewText(textData) }
-    private val showStatisticsCommand = Command("show statistics") { getStatistics(textData) }
-    private val removeTextCommand = Command("remove text") { textData.removeText() }
 
-    private val commandsList = listOf(exitCommand, addCommand, showStatisticsCommand, removeTextCommand)
-    private val commandsNames = commandsList.map { it.name }
-
-
-    private val parser = ArgParser("Text Analyzer", useDefaultHelpShortName = true)
-
-    private val add by parser.option(
-        ArgType.String, "add", "a",
-        "adds new text to data", "Add warn"
-    )
-    private val remove by parser.option(
-        ArgType.String, "remove", "r",
-        "removes text from data", "Remove warn"
-    )
-    private val stat by parser.option(
-        ArgType.String, "statistics", "s",
-        "shows statistics", "Stat warn"
-    )
-    private val exit by parser.option(
-        ArgType.String, "exit", "e",
-        "exit from program", "exit warn"
+    private val parser = ArgParser(
+        "Text Analyzer",
+        useDefaultHelpShortName = true,
+        strictSubcommandOptionsOrder = false
     )
 
-//    fun parseCommand(args: Array<String>) {
-//        parser.parse(args)
-//
-//        when (add) {
-//            "" -> readNewText(textData)
-//            null -> {}
-//            else ->
-//        }
-//    }
+
+    private val addNewText = Add()
+    private val showStatistics = ShowStatistics()
+    private val showTextList = ShowTextsList()
+    private val removeTexts = RemoveTexts()
+
+    private inner class RemoveTexts : Subcommand("remove", "Removing text from saved.") {
+        private val removingList by argument(
+            ArgType.String, "removing list",
+            "Selection of texts to delete"
+        ).vararg()
+
+        override fun execute() {
+            if (removingList.isEmpty()) {
+                println("remove command needs arguments to work")
+                return
+            }
+            val availableRemovingList = mutableListOf<String>()
+            removingList.forEach {
+                if (it in textData.getTextNamesList()) availableRemovingList.add(it)
+                else println("No text $it in data")
+            }
+
+            availableRemovingList.forEach { textData.removeText(it) }
+
+        }
+    }
+
+    private inner class ShowTextsList : Subcommand("list", "Showing tracking texts.") {
+        override fun execute() {
+            println("Saved texts list: ${textData.getTextNamesInString(", ")}")
+        }
+    }
 
 
-    /** Stores command and its name */
-    private class Command(val name: String, val executingFun: () -> Unit)
+    private inner class ShowStatistics : Subcommand("stat", "Showing statistics.") {
 
-    /** Prints list of names of available commands, requests the name and
-     *  returns corresponding to entered name function.
-     */
-    fun readCommandFromConsole(): () -> Unit {
+        private val textNames by argument(
+            ArgType.String, "text names",
+            "Names of texts which you want to show statistics about"
+        ).vararg()
 
-        println("Input one of the commands: ${commandsNames.joinToString()}:")
+        private val outputLocation by option(
+            ArgType.Choice(listOf("graphic", "console", "both"), { it }), "output-location", "o",
+            "Choice where to show the statistics"
+        ).default("console")
 
-        val commandNameRequest = requestInput(commandsNames)
-        commandNameRequest.first.exe()
+        override fun execute() {
 
-        val funName = commandNameRequest.second
+            val availableSelectedTextNames = mutableListOf<String>()
+            textNames.forEach {
+                if (it in textData.getTextNamesList()) availableSelectedTextNames.add(it)
+                else println("No text $it in data")
+            }
 
-        return commandsList.find { it.name == funName }!!.executingFun
+            when (outputLocation) {
+                "graphic" -> availableSelectedTextNames.forEach { callBuildingGraphic(it) }
+                "console" -> availableSelectedTextNames.forEach { callConsoleStatisticsShowing(it) }
+                "both" -> availableSelectedTextNames.forEach {
+                    callBuildingGraphic(it)
+                    callConsoleStatisticsShowing(it)
+                }
+            }
+        }
+
+        private fun callBuildingGraphic(textName: String) {
+            val text = textData.getTextByName(textName)!!
+            val listOfSentenceSizes = text.getSentencesList().map { it.getWordsCount() }
+            buildGraphic(textName, listOfSentenceSizes)
+        }
+
+        private fun callConsoleStatisticsShowing(textName: String) {
+            val text = textData.getTextByName(textName)!!
+            var counter = 1
+            val mapOfSentenceNumToItsSize = text.getSentencesList().associate { counter++ to it.getWordsCount() }
+            printStatisticsInConsole(textName, mapOfSentenceNumToItsSize)
+        }
+    }
+
+
+    private inner class Add : Subcommand("add", "Adding text from source") {
+        private val path by option(
+            ArgType.String, "source path", "s",
+            "Inputting path to file for reading or \"console\" to reading from console"
+        ).default("console")
+        private var textName by argument(
+            ArgType.String, "name",
+            "Specifies the name of the new text"
+        )
+
+        override fun execute() {
+
+            if (textName == "") textName = "untitled"
+            when {
+                path == "console" -> callReadingFromConsole()
+                !File(path).exists() -> throw ReturnException("No file at $path")
+                else -> callReadingFromFile()
+            }
+        }
+
+        private fun callReadingFromConsole() = readFromConsole(textData, textName)
+
+        private fun callReadingFromFile() = readFromFile(textData, textName, path)
+    }
+
+
+    fun parseArgsAndExecute(args: Array<String>) {
+        parser.parse(args)
+    }
+
+    fun subcommandsInit() {
+        parser.subcommands(addNewText, showStatistics, showTextList, removeTexts)
     }
 }
 
@@ -415,87 +420,29 @@ class CommandCenter(private val textData: TextData) {
  *  CommandCenter. If ReturnException was thrown, it is caught here,
  *  last iteration breaks and new one is called.
  */
-fun workCycle(commandCenter: CommandCenter) {
-    while (true) {
+fun readAndCallParsing(commandCenter: CommandCenter, mainArgs: Array<String>) {
+    if (mainArgs.isNotEmpty()) commandCenter.parseArgsAndExecute(mainArgs)
+    else {
+        val args = readln().split(WHITESPACES).toTypedArray()
         try {
-            (commandCenter.readCommandFromConsole())()
+            commandCenter.parseArgsAndExecute(args)
         } catch (e: ReturnException) {
-            println("You have been returned in main menu.")
-            continue
+            println("message")
+            exit()
         }
     }
 }
 
-
-/** Function reads from console input, check if it isn't available, repeat the request from the console
- *  in this case and convert input in type T if possible, else throws an exception and repeat the
- *  request.
- *
- *  @param availableInputs list of available values, the choice among which
- *  is requested from the console at some stage of the program.
- *  @param unavailableInputs list of unavailable values.
- *  @return a pair of function, which could be called after the request from this function to return
- *  if user want it or continue and value that the user has selected from the list of available.
- */
-fun requestInput(
-    availableInputs: List<Any>? = null,
-    unavailableInputs: List<Any>? = null
-): Pair<InputOutcomeCommand, String?> {
-
-    val regexAvailableInputs = availableInputs?.joinToString("|")?.toRegex() ?: Regex(".*")
-    val regexUnavailableInputs = unavailableInputs?.joinToString("|")?.toRegex() ?: Regex("")
-    val returnRegex = Regex("return")
-
-    while (true) {
-        val input = readln().trim()
-
-        return when {
-            input.matches(regexAvailableInputs) && !input.matches(regexUnavailableInputs) ->
-                ContinueCommand() to input
-
-            input.matches(returnRegex) -> ReturnCommand() to null
-            else -> {
-                println("There isn't this elem in list of available inputs. Try to repeat or enter return to exit in main menu: ")
-                continue
-            }
-        }
-    }
-}
-
-/** Interface used to existing commands objects, whose exe value
- *  stores function which calls after requesting from console in
- *  requestInput function.
- */
-interface InputOutcomeCommand {
-    /** Function returned in a Main.requestInput method for returned to
-     *  main menu of application or continuation of the process.
-     */
-    val exe: () -> Unit
-}
-
-/** If called exe of this object, program continue executing
- * without changes.
- */
-class ContinueCommand : InputOutcomeCommand {
-    override val exe: () -> Unit = {}
-}
-
-/** If called exe of this object, a custom ReturnException is thrown
- *  and process of executing some called command interrupted. Exception
- *  catches in mainCycle and program command request is repeated.
- */
-class ReturnCommand : InputOutcomeCommand {
-    override val exe: () -> Unit = throw ReturnException()
-}
 
 /** Custom exception being thrown if user want to return to the menu. */
-class ReturnException : Exception()
+class ReturnException(message: String = "") : Exception(message)
 
 
-fun main() {
+fun main(args: Array<String>) {
 
     val textData = TextData()
     val commandCenter = CommandCenter(textData)
+    commandCenter.subcommandsInit()
 
-    workCycle(commandCenter)
+    readAndCallParsing(commandCenter, args)
 }
