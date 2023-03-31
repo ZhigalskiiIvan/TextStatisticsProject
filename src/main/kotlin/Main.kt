@@ -448,7 +448,7 @@ class CommandCenter(private val textData: TextData) {
         }
     }
 
-    /** Calls functions of reading and adding text in saved. */
+    /** Calls functions of reading and adding text in saved.  */
     private inner class Add : Subcommand("add", "Adding text from source") {
 
         /** Path to file for reading */
