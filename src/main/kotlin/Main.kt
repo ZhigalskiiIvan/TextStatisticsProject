@@ -215,6 +215,35 @@ class TextData {
     fun getTextNamesList(): List<String> = textsList.map { it.getName() }
 
 
+    /**
+     * Receives text as input and splits it by sentence, calculate its lengths,
+     * create list of Sentence objects and returns Text object, created with
+     * this list, input field name, and count of sentences in content.
+     * @param name name of text.
+     * @param content string content of text.
+     * @return Text object
+     */
+    private fun getTextObjFromContents(name: String, content: String): Text {
+
+        var sentencesCount = 1
+        val listOfSentences = mutableListOf<Text.Sentence>()
+
+        val sentencesStringList = content
+            .split(DELIMITERS)
+            .map { it.replace(WHITESPACES, " ") }.toMutableList()
+        sentencesStringList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
+
+        for (sentenceText in sentencesStringList) {
+            val wordsList = sentenceText.split(WHITESPACES).toMutableList()
+            wordsList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
+            sentencesCount++
+            listOfSentences.add(Text.Sentence(wordsList.size))
+        }
+
+        return Text(name, sentencesCount, listOfSentences.toList())
+    }
+
+
     /** Uses for writing and reading Text objects in JSON. */
     private object JSONReaderWriter {
         private val gsonPretty: Gson = GsonBuilder().setPrettyPrinting().create()
@@ -285,35 +314,6 @@ class TextData {
 
 
 /**
- * Receives text as input and splits it by sentence, calculate its lengths,
- * create list of Sentence objects and returns Text object, created with
- * this list, input field name, and count of sentences in content.
- * @param name name of text.
- * @param content string content of text.
- * @return Text object
- */
-private fun TextData.getTextObjFromContents(name: String, content: String): TextData.Text {
-
-    var sentencesCount = 1
-    val listOfSentences = mutableListOf<TextData.Text.Sentence>()
-
-    val sentencesStringList = content
-        .split(DELIMITERS)
-        .map { it.replace(WHITESPACES, " ") }.toMutableList()
-    sentencesStringList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
-
-    for (sentenceText in sentencesStringList) {
-        val wordsList = sentenceText.split(WHITESPACES).toMutableList()
-        wordsList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
-        sentencesCount++
-        listOfSentences.add(TextData.Text.Sentence(wordsList.size))
-    }
-
-    return TextData.Text(name, sentencesCount, listOfSentences.toList())
-}
-
-
-/**
  *  Parses list of Strings in commands and its arguments,
  *  checks the correctness of the entered data and calls related functions.
  */
@@ -337,33 +337,42 @@ class CommandCenter(private val textData: TextData) {
 
     /** Calls function of removing texts from data. */
     private inner class RemoveTexts : Subcommand("remove", "Removing text from saved.") {
+
+        /** Texts names list to be removed */
         private val removingList by argument(
             ArgType.String, "removing list",
             "Selection of texts to delete"
         ).vararg()
 
-        override fun execute() {
-            if (removingList.isEmpty()) {
-                println("remove command needs arguments to work")
-                return
-            }
-            val availableRemovingList = mutableListOf<String>()
+        /** @return list of available names from removingList */
+        private fun selectAvailableNamesFromInputted(): List<String> {
+            val availableInputs = mutableListOf<String>()
+
             removingList.forEach {
-                if (it in textData.getTextNamesList()) availableRemovingList.add(it)
+                if (it in textData.getTextNamesList()) availableInputs.add(it)
                 else println("No text $it in data")
             }
-
-            availableRemovingList.forEach { textData.removeText(it) }
-
+            return availableInputs
         }
+
+
+        /** Calls removing of texts with available names from data */
+        private fun callRemovingFunctionForEachAvailableName() {
+            val availableRemovingList = selectAvailableNamesFromInputted()
+            availableRemovingList.forEach { textData.removeText(it) }
+        }
+
+        /** Called in time from parse function of Remove text object and calls removing */
+        override fun execute() = callRemovingFunctionForEachAvailableName()
     }
 
-    /** Prints list of saved texts in console. */
+    /** Calls printing list of saved texts in console. */
     private inner class ShowTextsList : Subcommand("list", "Showing tracking texts.") {
 
+        /** Prints list of saved texts in string in console */
         private fun printTextListInConsole() = println("Saved texts list: ${textData.getTextNamesInString(", ")}")
 
-
+        /** Called by parse function and calls printing of saved texts names */
         override fun execute() {
             printTextListInConsole()
         }
@@ -372,17 +381,20 @@ class CommandCenter(private val textData: TextData) {
     /** Calls functions of graphic building or showing statistics in console. */
     private inner class ShowStatistics : Subcommand("stat", "Showing statistics") {
 
+        /** Names of texts for which you want to show statistics */
         private val textNames by argument(
             ArgType.String, "text names",
             "Names of texts which you want to show statistics about"
         ).vararg()
 
+        /** Place where user can to see statistics */
         private val outputLocation by option(
             ArgType.Choice(listOf("graphic", "console", "both"), { it }), "output-location", "o",
             "Choice where to show the statistics"
         ).default("console")
 
 
+        /** @return list of names from textNames which can be show statistics about */
         private fun selectAvailableInputFromInputted(): List<String> {
             val availableInputs = mutableListOf<String>()
 
@@ -393,6 +405,10 @@ class CommandCenter(private val textData: TextData) {
             return availableInputs
         }
 
+        /**
+         *  Calls showing of statistics depend on outputLocation
+         *  for each text from texts with textNames
+         */
         private fun callStatisticsShowingForEach(textNames: List<String>) {
             when (outputLocation) {
                 "graphic" -> textNames.forEach { callBuildingGraphic(it) }
@@ -404,12 +420,14 @@ class CommandCenter(private val textData: TextData) {
             }
         }
 
+        /** Calls function of building graphic for text with textName */
         private fun callBuildingGraphic(textName: String) {
             val text = textData.getTextByName(textName)!!
             val listOfSentenceSizes = text.getSentencesList().map { it.getWordsCount() }
             buildGraphic(textName, listOfSentenceSizes)
         }
 
+        /** Calls function of printing statistics for text with textName */
         private fun callConsoleStatisticsShowing(textName: String) {
             val text = textData.getTextByName(textName)!!
             var counter = 1
@@ -417,38 +435,48 @@ class CommandCenter(private val textData: TextData) {
             printStatisticsInConsole(textName, mapOfSentenceNumToItsSize)
         }
 
-
-        override fun execute() {
+        /** Calls function of calling for all available text names */
+        private fun callStatistics() {
             val availableSelectedTextNames = selectAvailableInputFromInputted()
             callStatisticsShowingForEach(availableSelectedTextNames)
+        }
+
+
+        /** Calls showing statistics methods */
+        override fun execute() {
+            callStatistics()
         }
     }
 
     /** Calls functions of reading and adding text in saved. */
     private inner class Add : Subcommand("add", "Adding text from source") {
 
+        /** Path to file for reading */
         private val path by option(
             ArgType.String, "source path", "s",
             "Inputting path to file for reading or \"console\" to reading from console"
         ).default("console")
 
+        /** New text name */
         private val textName by argument(
             ArgType.String, "name",
             "Specifies the name of the new text"
         )
 
-
+        /** Calculate method of input and calls reading functions */
         private fun callReading() = when {
             path == "console" -> callReadingFromConsole()
             !File(path).exists() -> throw IncorrectPathException(path)
             else -> callReadingFromFile()
         }
 
+        /** Calls reading text with textName from console */
         private fun callReadingFromConsole() = readFromConsoleAndAddToData(textData, textName)
 
+        /** Calls reading of text with textName from file with path */
         private fun callReadingFromFile() = readFromFileAndAddToData(textData, textName, path)
 
-
+        /** Calls reading methods */
         override fun execute() = callReading()
     }
 
