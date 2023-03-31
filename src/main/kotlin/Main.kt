@@ -11,15 +11,17 @@ import com.google.gson.GsonBuilder
 import java.io.FileReader
 
 
-val WHITESPACES = Regex("\\s+")
+private val DELIMITERS = Regex("[!?.]+\\s+")
+private val WHITESPACES = Regex("\\s+")
+private val WHITESPACES_OR_EMPTY = Regex("(\\s+)?")
 
 
-/** Builds bar chart with data of mapOfSentenceNumToItsSize and saves image in file.
- *  @param textName name of texts, which user want to see statistics about.
- *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
+/**
+ * Builds bar chart with data of listOfSentenceSizes and saves image in file.
+ *  @param textName name of text, which user want to see statistics about.
+ *  @param listOfSentenceSizes list of sentences words count.
  */
 fun buildGraphic(textName: String, listOfSentenceSizes: List<Int>) {
-
     val data = mapOf("words count" to listOfSentenceSizes.map { it.toFloat() })
 
     val fig = ggplot(data) +
@@ -39,7 +41,8 @@ fun buildGraphic(textName: String, listOfSentenceSizes: List<Int>) {
     fig.show()
 }
 
-/** Prints statistics according to data from mapOfSentenceNumToItsSize.
+/**
+ * Prints statistics according to data from mapOfSentenceNumToItsSize.
  *  @param textName name of texts, which user want to see statistics about.
  *  @param mapOfSentenceNumToItsSize map of pairs of sentence numbers and their words count.
  */
@@ -69,15 +72,15 @@ fun printStatisticsInConsole(textName: String, mapOfSentenceNumToItsSize: Map<In
             """.trimMargin()
     )
     println("-".repeat(sectionTitle.length))
-    println("Done!\n")
 }
 
 
-/** Read from console the name of text, checks that it hasn't saved yet and its contents,
- *  asks if entered text is not correct and re-calls itself or
- *  calls method of adding received text to data.
+/**
+ *  Read from console the text and calls function of adding new text to data.
+ *  @param textData TextData object to add new text to.
+ *  @param textName name of new text.
  */
-fun readFromConsole(textData: TextData, textName: String) {
+fun readFromConsoleAndAddToData(textData: TextData, textName: String) {
 
     println("Input a text content(after input text press enter twice):")
     var content = ""
@@ -100,15 +103,13 @@ fun readFromConsole(textData: TextData, textName: String) {
     addTextToData(textData, textName, content)
 }
 
-
-/** Asks for the name of text, path to file to read text from,
- *  checks for its existing, reads contents and,
- *  asks if entered names is not correct and re-calls itself or
- *  calls method of adding received text to data.
+/**
+ *  Read text from file and calls function of adding text to data.
+ *  @param textData TextData object to add new text to.
+ *  @param textName name of new text.
+ *  @param path path to the text file.
  */
-fun readFromFile(textData: TextData, textName: String, path: String) {
-
-    println("Input path to file:")
+fun readFromFileAndAddToData(textData: TextData, textName: String, path: String) {
     val contentsFile = File(path)
     val content = contentsFile.readText()
 
@@ -116,31 +117,34 @@ fun readFromFile(textData: TextData, textName: String, path: String) {
 }
 
 /**
- * Calls method of TextData class to add new text in set
- * of tracked texts.
- * @param textName name of new text.
- * @param content content of new text.
+ *  Calls method of TextData class to add new text in set
+ *  of tracked texts.
+ *  @param textData TextData object to add new text to.
+ *  @param textName name of new text.
+ *  @param content content of new text.
  */
 fun addTextToData(textData: TextData, textName: String, content: String) =
     textData.addNewText(textName, content)
 
 
-/** Stores data about tracking texts,
+/**
+ *  Stores data about tracking texts,
  *  includes methods for work with them due the adding.
  */
 class TextData {
 
-    /** list of monitored texts. */
+    /** List of monitored texts. */
     private val textsList: MutableSet<Text>
 
     init {
+        // Initialization of previously saved and saved in JSON file texts
         textsList = JSONReaderWriter.readSavedTexts()
     }
 
-    private fun haveText(): Boolean = textsList.isNotEmpty()
 
-    /** Method for removing text from watch list. Asks for a name of a text
-     *  and if it's being tracked, remove it from the textsList.
+    /**
+     *  Removes text with name from watch list if it was there previously.
+     *  @param name the name of text to be deleted.
      */
     fun removeText(name: String) {
 
@@ -151,114 +155,114 @@ class TextData {
             println("Text ${removingText.getName()} removed.")
             JSONReaderWriter.removeFromDirectory(name)
         }
+    }
+
+    /**
+     *  Calls method of textAnalyzer for getting Text object from
+     *  textName and content, adds it in textsList and calls method of writing it in JSON.
+     *  @param textName name of text to be added.
+     *  @param content content of text.
+     */
+    fun addNewText(textName: String, content: String) {
+        val newText = getTextObjFromContents(similarAvailableName(textName), content)
+        textsList.add(newText)
+        JSONReaderWriter.writeInJSON(newText)
+    }
+
+    /**
+     *  If exists text in textList with name textName, chooses similar to it name with addition "(*)".
+     *  @param textName the name to check for a match.
+     *  @return name similar to textName.
+     */
+    private fun similarAvailableName(textName: String): String {
+        val existingNames = textsList.map { it.getName() }
+        if (textName !in existingNames) return textName
+
+        val nameRegex = Regex("$textName\\(\\d+\\)")
+        val busyNumbers = mutableSetOf<Int>()
+        for (name in existingNames) {
+            if (name.matches(nameRegex))
+                busyNumbers.add(name.substring(name.indexOfLast { it == '(' }, name.indexOfFirst { it == ')' }).toInt())
+        }
+
+        var minimalAvailable = 1
+        while (true) {
+            if (minimalAvailable in busyNumbers) minimalAvailable++
+            else break
+        }
+
+        return "$textName($minimalAvailable)"
 
     }
 
 
-    /** Returns Text object whose name matches searchingName or null
+    /**
+     *  Returns Text object from textList whose name matches searchingName or null
      *  if there is no text with same name in the textsList.
      *  @param searchingName name of the text to be found.
      *  @return the text with searchingName name or null.
      */
     fun getTextByName(searchingName: String): Text? {
-
-        for (text in textsList) if (text.getName() == searchingName) return text
+        textsList.forEach { if (it.getName() == searchingName) return it }
         return null
     }
 
     /** @return string with names of tracking texts separated by delimiter. */
-    fun getTextNamesInString(delimiter: String = ", "): String {
-        return textsList.joinToString(delimiter) { it.getName() }
-    }
-
+    fun getTextNamesInString(delimiter: String = ", "): String =
+        textsList.joinToString(delimiter) { it.getName() }
 
     /** @return list with names of tracking texts. */
-    fun getTextNamesList(): List<String> {
-        return textsList.map { it.getName() }
-    }
+    fun getTextNamesList(): List<String> = textsList.map { it.getName() }
 
 
-    /** Calls method of textAnalyzer for getting Text object from
-     *  textName and content and adds it in textsList.
-     */
-    fun addNewText(textName: String, content: String) {
-        val newText = TextAnalyzer.getTextObjFromContents(textName, content)
-        textsList.add(newText)
-        JSONReaderWriter.writeInJSON(newText)
-    }
-
-
+    /** Uses for writing and reading Text objects in JSON. */
     private object JSONReaderWriter {
         private val gsonPretty: Gson = GsonBuilder().setPrettyPrinting().create()
         private val savedTextsDirectory: File = File("savedTexts")
         private val savedTextsFiles: Array<File>
 
         init {
+            // initialization or creation directory with JSON files where Text objects were written.
             if (!savedTextsDirectory.exists()) savedTextsDirectory.mkdir()
-            savedTextsFiles =
-                savedTextsDirectory.listFiles { _, filename ->
-                    filename.split(".").last() == "json"
-                } ?: emptyArray()
+            savedTextsFiles = savedTextsDirectory.listFiles { _, filename ->
+                filename.split(".").last() == "json"
+            } ?: emptyArray()
         }
 
-        fun removeFromDirectory(name: String) {
+        /**
+         *  Removes file with name from directory with saved texts.
+         *  @param name name of file to be deleted.
+         */
+        fun removeFromDirectory(name: String) =
             savedTextsFiles.find { it.name == name }?.delete() ?: println("No file with name $name in directory")
-        }
 
+        /**
+         *  Writes in JSON file text.
+         *  @param text Text object to be written.
+         */
         fun writeInJSON(text: Text) {
             val jsonFileText = gsonPretty.toJson(text)
-
             val jsonFile = File("${savedTextsDirectory.path}/${text.getName()}.json")
+
             jsonFile.createNewFile()
             jsonFile.writeText(jsonFileText)
         }
 
-        fun readFromJSON(jsonFile: File): Text {
-            return gsonPretty.fromJson(FileReader(jsonFile), Text::class.java)
-        }
-
-        fun readSavedTexts(): MutableSet<Text> {
-            val textsList = mutableListOf<Text>()
-            for (file in savedTextsFiles) {
-                textsList.add(readFromJSON(file))
-            }
-            return textsList.toMutableSet()
-        }
-
-    }
-
-    /** Object used for getting text from the string information. */
-    private object TextAnalyzer {
-
-        private val DELIMITERS = Regex("[!?.]+\\s+")
-        private val WHITESPACES = Regex("\\s+")
-        private val WHITESPACES_OR_EMPTY = Regex("(\\s+)?")
+        /**
+         *  @param jsonFile file to read from text object.
+         *  @return Text object read from JSON file.
+         */
+        fun readFromJSON(jsonFile: File): Text = gsonPretty.fromJson(FileReader(jsonFile), Text::class.java)
 
         /**
-         * Receives text as input and splits it by sentence, calculate its lengths,
-         * create list of Sentence objects and returns Text object, created with
-         * this list, input field name, and count of sentences in content.
+         *  Calls method of reading from JSON for each json file from directory with saved texts.
+         *  @return set of Text objects
          */
-        fun getTextObjFromContents(name: String, content: String): Text {
-
-            var sentencesCount = 1
-            val listOfSentences = mutableListOf<Text.Sentence>()
-
-            val sentencesStringList = content
-                .split(DELIMITERS)
-                .map { it.replace(WHITESPACES, " ") }.toMutableList()
-            sentencesStringList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
-
-            for (sentenceText in sentencesStringList) {
-                val wordsList = sentenceText.split(WHITESPACES).toMutableList()
-                wordsList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
-                sentencesCount++
-                listOfSentences.add(Text.Sentence(wordsList.size))
-            }
-
-            return Text(name, sentencesCount, listOfSentences.toList())
+        fun readSavedTexts(): MutableSet<Text> {
+            val textsList = mutableListOf<Text>()
+            for (file in savedTextsFiles) textsList.add(readFromJSON(file))
+            return textsList.toMutableSet()
         }
-
     }
 
 
@@ -268,7 +272,6 @@ class TextData {
         private val sentencesCount: Int,
         private val sentencesList: List<Sentence>,
     ) {
-
         fun getName() = name
 
         fun getSentencesList() = sentencesList
@@ -281,31 +284,58 @@ class TextData {
 }
 
 
-/** Function used for exiting out of program. */
-fun exit(): Nothing {
-    println("bye!")
-    exitProcess(0)
+/**
+ * Receives text as input and splits it by sentence, calculate its lengths,
+ * create list of Sentence objects and returns Text object, created with
+ * this list, input field name, and count of sentences in content.
+ * @param name name of text.
+ * @param content string content of text.
+ * @return Text object
+ */
+private fun TextData.getTextObjFromContents(name: String, content: String): TextData.Text {
+
+    var sentencesCount = 1
+    val listOfSentences = mutableListOf<TextData.Text.Sentence>()
+
+    val sentencesStringList = content
+        .split(DELIMITERS)
+        .map { it.replace(WHITESPACES, " ") }.toMutableList()
+    sentencesStringList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
+
+    for (sentenceText in sentencesStringList) {
+        val wordsList = sentenceText.split(WHITESPACES).toMutableList()
+        wordsList.removeIf { it.matches(WHITESPACES_OR_EMPTY) }
+        sentencesCount++
+        listOfSentences.add(TextData.Text.Sentence(wordsList.size))
+    }
+
+    return TextData.Text(name, sentencesCount, listOfSentences.toList())
 }
 
 
-/** Reads commands from the console and storing data about
- *  the functions they should execute.
+/**
+ *  Parses list of Strings in commands and its arguments,
+ *  checks the correctness of the entered data and calls related functions.
  */
 class CommandCenter(private val textData: TextData) {
 
-
+    /**
+     *  ArgParser object which can distribute arguments
+     *  over declared options and subcommands.
+     */
     private val parser = ArgParser(
         "Text Analyzer",
         useDefaultHelpShortName = true,
         strictSubcommandOptionsOrder = false
     )
 
-
+    /** Subcommands initialization */
     private val addNewText = Add()
     private val showStatistics = ShowStatistics()
     private val showTextList = ShowTextsList()
     private val removeTexts = RemoveTexts()
 
+    /** Calls function of removing texts from data. */
     private inner class RemoveTexts : Subcommand("remove", "Removing text from saved.") {
         private val removingList by argument(
             ArgType.String, "removing list",
@@ -328,14 +358,19 @@ class CommandCenter(private val textData: TextData) {
         }
     }
 
+    /** Prints list of saved texts in console. */
     private inner class ShowTextsList : Subcommand("list", "Showing tracking texts.") {
+
+        private fun printTextListInConsole() = println("Saved texts list: ${textData.getTextNamesInString(", ")}")
+
+
         override fun execute() {
-            println("Saved texts list: ${textData.getTextNamesInString(", ")}")
+            printTextListInConsole()
         }
     }
 
-
-    private inner class ShowStatistics : Subcommand("stat", "Showing statistics.") {
+    /** Calls functions of graphic building or showing statistics in console. */
+    private inner class ShowStatistics : Subcommand("stat", "Showing statistics") {
 
         private val textNames by argument(
             ArgType.String, "text names",
@@ -347,18 +382,22 @@ class CommandCenter(private val textData: TextData) {
             "Choice where to show the statistics"
         ).default("console")
 
-        override fun execute() {
 
-            val availableSelectedTextNames = mutableListOf<String>()
+        private fun selectAvailableInputFromInputted(): List<String> {
+            val availableInputs = mutableListOf<String>()
+
             textNames.forEach {
-                if (it in textData.getTextNamesList()) availableSelectedTextNames.add(it)
+                if (it in textData.getTextNamesList()) availableInputs.add(it)
                 else println("No text $it in data")
             }
+            return availableInputs
+        }
 
+        private fun callStatisticsShowingForEach(textNames: List<String>) {
             when (outputLocation) {
-                "graphic" -> availableSelectedTextNames.forEach { callBuildingGraphic(it) }
-                "console" -> availableSelectedTextNames.forEach { callConsoleStatisticsShowing(it) }
-                "both" -> availableSelectedTextNames.forEach {
+                "graphic" -> textNames.forEach { callBuildingGraphic(it) }
+                "console" -> textNames.forEach { callConsoleStatisticsShowing(it) }
+                "both" -> textNames.forEach {
                     callBuildingGraphic(it)
                     callConsoleStatisticsShowing(it)
                 }
@@ -377,65 +416,74 @@ class CommandCenter(private val textData: TextData) {
             val mapOfSentenceNumToItsSize = text.getSentencesList().associate { counter++ to it.getWordsCount() }
             printStatisticsInConsole(textName, mapOfSentenceNumToItsSize)
         }
+
+
+        override fun execute() {
+            val availableSelectedTextNames = selectAvailableInputFromInputted()
+            callStatisticsShowingForEach(availableSelectedTextNames)
+        }
     }
 
-
+    /** Calls functions of reading and adding text in saved. */
     private inner class Add : Subcommand("add", "Adding text from source") {
+
         private val path by option(
             ArgType.String, "source path", "s",
             "Inputting path to file for reading or \"console\" to reading from console"
         ).default("console")
-        private var textName by argument(
+
+        private val textName by argument(
             ArgType.String, "name",
             "Specifies the name of the new text"
         )
 
-        override fun execute() {
 
-            if (textName == "") textName = "untitled"
-            when {
-                path == "console" -> callReadingFromConsole()
-                !File(path).exists() -> throw ReturnException("No file at $path")
-                else -> callReadingFromFile()
-            }
+        private fun callReading() = when {
+            path == "console" -> callReadingFromConsole()
+            !File(path).exists() -> throw IncorrectPathException(path)
+            else -> callReadingFromFile()
         }
 
-        private fun callReadingFromConsole() = readFromConsole(textData, textName)
+        private fun callReadingFromConsole() = readFromConsoleAndAddToData(textData, textName)
 
-        private fun callReadingFromFile() = readFromFile(textData, textName, path)
+        private fun callReadingFromFile() = readFromFileAndAddToData(textData, textName, path)
+
+
+        override fun execute() = callReading()
     }
 
 
-    fun parseArgsAndExecute(args: Array<String>) {
-        parser.parse(args)
-    }
+    /** Calls parse function of ArgParser object. */
+    fun parseArgsAndExecute(args: Array<String>) = parser.parse(args)
 
-    fun subcommandsInit() {
-        parser.subcommands(addNewText, showStatistics, showTextList, removeTexts)
-    }
+    /** Calls initialization of subcommands. */
+    fun subcommandsInit() = parser.subcommands(addNewText, showStatistics, showTextList, removeTexts)
 }
 
 
-/** Function repeating the process of calling functions returned by
- *  CommandCenter. If ReturnException was thrown, it is caught here,
- *  last iteration breaks and new one is called.
- */
+/** Calls parsing of main args or if it is empty, read them from console */
 fun readAndCallParsing(commandCenter: CommandCenter, mainArgs: Array<String>) {
     if (mainArgs.isNotEmpty()) commandCenter.parseArgsAndExecute(mainArgs)
     else {
         val args = readln().split(WHITESPACES).toTypedArray()
         try {
             commandCenter.parseArgsAndExecute(args)
-        } catch (e: ReturnException) {
-            println("message")
+        } catch (e: IncorrectPathException) {
+            println(e.message)
             exit()
         }
     }
 }
 
 
-/** Custom exception being thrown if user want to return to the menu. */
-class ReturnException(message: String = "") : Exception(message)
+/** Custom exception being thrown if user enter incorrect path to file. */
+class IncorrectPathException(path: String = "") : Exception("File at $path doesn't exist")
+
+/** Function used for exiting out of program. */
+fun exit(): Nothing {
+    println("bye!")
+    exitProcess(0)
+}
 
 
 fun main(args: Array<String>) {
